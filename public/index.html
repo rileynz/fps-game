@@ -40,8 +40,7 @@ canvas{display:block;position:fixed;inset:0}
 #score-lbl{font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase}
 #kills-val{font-size:12px;color:rgba(255,255,255,0.3);margin-top:1px}
 
-/* perf — top left */
-#perf{position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:4px}
+/* perf always visible */
 .badge{font-size:11px;font-weight:700;background:rgba(0,0,0,0.6);padding:4px 11px;border-radius:20px;backdrop-filter:blur(4px);letter-spacing:.5px}
 #fps-badge{color:#2ecc71}
 /* ping colour changes based on quality */
@@ -95,13 +94,13 @@ canvas{display:block;position:fixed;inset:0}
 
 <canvas id="c"></canvas>
 
+<div id="perf-always" style="position:fixed;top:14px;left:14px;display:flex;flex-direction:column;gap:4px;z-index:60;pointer-events:none">
+  <span class="badge" id="fps-badge">-- FPS</span>
+  <span class="badge" id="ping-badge">Ping: --ms</span>
+  <span class="badge" id="online-badge">0 online</span>
+</div>
 <div id="hud">
   <div id="flash"></div>
-  <div id="perf">
-    <span class="badge" id="fps-badge">-- FPS</span>
-    <span class="badge" id="ping-badge">-- ms</span>
-    <span class="badge" id="online-badge">0 online</span>
-  </div>
   <div id="lb">
     <div id="lb-head">🏆 Top Players</div>
     <div id="lb-rows"></div>

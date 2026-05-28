@@ -19,65 +19,112 @@ canvas{display:block;position:fixed;inset:0}
 #name-input::placeholder{color:#44445a}
 #name-input:focus{border-color:#e74c3c88;box-shadow:0 0 0 3px #e74c3c22}
 #play-btn{width:100%;padding:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;font-family:inherit;letter-spacing:1px;cursor:pointer;transition:all .15s;box-shadow:0 4px 16px #e74c3c44}
-#play-btn:hover{background:linear-gradient(135deg,#e85c4c,#d44030);transform:translateY(-1px);box-shadow:0 6px 22px #e74c3c66}
+#play-btn:hover{background:linear-gradient(135deg,#e85c4c,#d44030);transform:translateY(-1px)}
 #play-btn:active{transform:translateY(0)}
-#menu-online{font-size:12px;color:#44445a;margin-top:6px}
-.menu-tips{font-size:11px;color:#33334a;text-align:center;margin-top:18px;line-height:1.9}
+#menu-online{font-size:12px;color:#44445a;margin-top:4px}
+.menu-tips{font-size:11px;color:#33334a;text-align:center;margin-top:18px;line-height:2}
 .menu-tips b{color:#555570}
 
-/* ── HUD ── */
+/* ══════════════════════════════════════════════
+   HUD LAYOUT — nothing overlaps
+   ┌──────────────────────────────────────────┐
+   │ [perf bar — top center, single row]      │
+   ├──────────┬───────────────────┬───────────┤
+   │          │  kill feed        │ leaderboard│
+   │          │  (top center)     │ (top right)│
+   │          │                   │            │
+   │          │                   │            │
+   │          │                   │            │
+   ├──────────┴───────────────────┴───────────┤
+   │ [score+hp — bottom left] [minimap — br]  │
+   └──────────────────────────────────────────┘
+   ══════════════════════════════════════════ */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none}
 
-/* health — bottom left */
-#hud-bl{position:absolute;bottom:22px;left:18px;width:200px}
-#hp-track{height:10px;background:rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;margin-bottom:4px}
-#hp-bar{height:100%;border-radius:10px;background:#2ecc71;transition:width .1s,background .2s;width:100%}
-#hp-text{font-size:12px;color:rgba(255,255,255,0.5);font-weight:600}
+/* ── PERF BAR — top center, single pill row, always on screen ── */
+#perf-bar{
+  position:fixed;top:12px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:6px;
+  background:rgba(0,0,0,0.55);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:999px;
+  padding:5px 14px;
+  z-index:60;pointer-events:none;
+  backdrop-filter:blur(6px);
+  white-space:nowrap;
+}
+.pb-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.3px}
+.pb-dot{width:7px;height:7px;border-radius:50%}
+.pb-sep{width:1px;height:12px;background:rgba(255,255,255,0.12)}
+#pb-fps-dot{background:#2ecc71}
+#pb-ping-dot{background:#2ecc71}
+#pb-online-dot{background:#9b59b6}
+#pb-fps-val{color:#2ecc71}
+#pb-ping-val{color:#2ecc71}
+#pb-online-val{color:#9b59b6}
 
-/* score — above health */
-#hud-score{position:absolute;bottom:58px;left:18px}
-#score-val{font-size:26px;font-weight:800;color:#f39c12;line-height:1;text-shadow:0 2px 8px #f39c1244}
-#score-lbl{font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase}
-#kills-val{font-size:12px;color:rgba(255,255,255,0.3);margin-top:1px}
-
-/* perf always visible */
-.badge{font-size:11px;font-weight:700;background:rgba(0,0,0,0.6);padding:4px 11px;border-radius:20px;backdrop-filter:blur(4px);letter-spacing:.5px}
-#fps-badge{color:#2ecc71}
-/* ping colour changes based on quality */
-#ping-badge{color:#2ecc71}
-#online-badge{color:#9b59b6}
-
-/* leaderboard — top right */
-#lb{position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.55);border-radius:12px;padding:12px 16px;min-width:185px;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.06)}
+/* ── LEADERBOARD — top right, pushed down so it doesn't touch perf bar ── */
+#lb{
+  position:absolute;top:50px;right:14px;
+  background:rgba(0,0,0,0.6);
+  border-radius:12px;padding:12px 16px;
+  min-width:190px;
+  backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,0.07);
+}
 #lb-head{font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;text-align:center}
-.lb-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;font-weight:600;border-radius:6px}
-.lb-row.me{background:rgba(255,255,255,0.06);padding:3px 5px;margin:0 -5px}
-.lb-rank{color:rgba(255,255,255,0.25);font-size:11px;width:16px;text-align:right;flex-shrink:0}
+.lb-row{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12px;font-weight:600;border-radius:6px}
+.lb-row.me{background:rgba(255,255,255,0.07);padding:3px 6px;margin:0 -6px}
+.lb-rank{color:rgba(255,255,255,0.2);font-size:10px;width:14px;text-align:right;flex-shrink:0}
 .lb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.lb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,0.85)}
-.lb-pts{color:#f39c12;font-size:11px;flex-shrink:0}
+.lb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,0.88)}
+.lb-pts{color:#f39c12;font-size:11px;font-weight:700;flex-shrink:0}
 
-/* minimap — bottom right */
-#mm-wrap{position:absolute;bottom:22px;right:18px}
-#mm{border-radius:10px;border:1.5px solid rgba(255,255,255,0.1);display:block;box-shadow:0 4px 16px #00000066}
-#mm-lbl{font-size:9px;color:rgba(255,255,255,0.2);text-align:center;margin-top:3px;letter-spacing:1px}
-
-/* kill feed — top center */
-#kf{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;min-width:300px}
-.kf-row{background:rgba(0,0,0,0.65);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;white-space:nowrap;animation:kfout 3.5s forwards;backdrop-filter:blur(4px)}
+/* ── KILL FEED — top center, below perf bar, left of leaderboard ── */
+#kf{
+  position:absolute;top:52px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  pointer-events:none;min-width:280px;max-width:420px;
+}
+.kf-row{
+  background:rgba(0,0,0,0.7);border-radius:20px;
+  padding:4px 16px;font-size:12px;font-weight:600;
+  white-space:nowrap;animation:kfout 3.5s forwards;
+  backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.06);
+}
 @keyframes kfout{0%,65%{opacity:1}100%{opacity:0}}
 
-/* death */
-#dead{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;display:none;pointer-events:none}
-#dead h2{font-size:36px;font-weight:900;color:#e74c3c;text-shadow:0 0 30px #e74c3c88}
-#dead p{font-size:13px;color:rgba(231,76,60,0.6);margin-top:8px;font-weight:600}
+/* ── BOTTOM LEFT — score + health stacked ── */
+#hud-bl{position:absolute;bottom:20px;left:16px;display:flex;flex-direction:column;gap:6px}
+#score-block{display:flex;align-items:baseline;gap:6px}
+#score-val{font-size:28px;font-weight:900;color:#f39c12;line-height:1;text-shadow:0 2px 8px #f39c1244}
+#score-sub{display:flex;flex-direction:column}
+#score-lbl{font-size:9px;color:rgba(255,255,255,0.25);letter-spacing:2px;text-transform:uppercase;line-height:1}
+#kills-val{font-size:11px;color:rgba(255,255,255,0.3);margin-top:1px}
+#hp-wrap{display:flex;flex-direction:column;gap:3px}
+#hp-label-row{display:flex;justify-content:space-between;align-items:center}
+#hp-lbl{font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase}
+#hp-text{font-size:11px;font-weight:700;color:rgba(255,255,255,0.55)}
+#hp-track{width:190px;height:9px;background:rgba(255,255,255,0.1);border-radius:9px;overflow:hidden}
+#hp-bar{height:100%;border-radius:9px;background:#2ecc71;transition:width .12s,background .2s;width:100%}
 
-/* hit flash */
+/* ── BOTTOM RIGHT — minimap ── */
+#mm-wrap{position:absolute;bottom:20px;right:16px;display:flex;flex-direction:column;align-items:center;gap:3px}
+#mm{border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);display:block;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+#mm-lbl{font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:2px;text-transform:uppercase}
+
+/* ── DEATH ── */
+#dead{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;display:none;pointer-events:none}
+#dead h2{font-size:38px;font-weight:900;color:#e74c3c;text-shadow:0 0 30px #e74c3c88;letter-spacing:2px}
+#dead p{font-size:13px;color:rgba(231,76,60,0.6);margin-top:10px;font-weight:600;letter-spacing:1px}
+
+/* ── HIT FLASH ── */
 #flash{position:absolute;inset:0;background:transparent;pointer-events:none}
 </style>
 </head>
 <body>
 
+<!-- MENU -->
 <div id="menu">
   <div class="menu-logo">Arena.io</div>
   <div class="menu-sub">Multiplayer Top-Down Shooter</div>
@@ -87,38 +134,73 @@ canvas{display:block;position:fixed;inset:0}
     <div id="menu-online">— players online</div>
   </div>
   <div class="menu-tips">
-    <b>WASD</b> to move &nbsp;·&nbsp; <b>Mouse</b> to aim &nbsp;·&nbsp; <b>Click</b> to shoot<br>
-    Eliminate players to earn points
+    <b>WASD</b> move &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Click</b> shoot<br>
+    100 points per kill · First to top the leaderboard wins
   </div>
 </div>
 
+<!-- GAME CANVAS -->
 <canvas id="c"></canvas>
 
-<div id="perf-always" style="position:fixed;top:14px;left:14px;display:flex;flex-direction:column;gap:4px;z-index:60;pointer-events:none">
-  <span class="badge" id="fps-badge">-- FPS</span>
-  <span class="badge" id="ping-badge">Ping: --ms</span>
-  <span class="badge" id="online-badge">0 online</span>
+<!-- PERF BAR — always visible, top center, single row pill -->
+<div id="perf-bar">
+  <div class="pb-item">
+    <div class="pb-dot" id="pb-fps-dot"></div>
+    <span id="pb-fps-val">-- FPS</span>
+  </div>
+  <div class="pb-sep"></div>
+  <div class="pb-item">
+    <div class="pb-dot" id="pb-ping-dot"></div>
+    <span id="pb-ping-val">-- ms</span>
+  </div>
+  <div class="pb-sep"></div>
+  <div class="pb-item">
+    <div class="pb-dot" id="pb-online-dot"></div>
+    <span id="pb-online-val">0 online</span>
+  </div>
 </div>
+
+<!-- HUD (shown after joining) -->
 <div id="hud">
   <div id="flash"></div>
+
+  <!-- leaderboard — top right -->
   <div id="lb">
-    <div id="lb-head">🏆 Top Players</div>
+    <div id="lb-head">🏆 Leaderboard</div>
     <div id="lb-rows"></div>
   </div>
+
+  <!-- kill feed — top center, below perf bar -->
   <div id="kf"></div>
-  <div id="dead"><h2>YOU DIED</h2><p id="dead-txt">Respawning in 3s...</p></div>
-  <div id="hud-score">
-    <div id="score-val">0</div>
-    <div id="score-lbl">Score</div>
-    <div id="kills-val">0 kills</div>
+
+  <!-- death overlay -->
+  <div id="dead">
+    <h2>YOU DIED</h2>
+    <p id="dead-txt">Respawning in 3s...</p>
   </div>
+
+  <!-- bottom left — score + health -->
   <div id="hud-bl">
-    <div id="hp-track"><div id="hp-bar"></div></div>
-    <div id="hp-text">100 HP</div>
+    <div id="score-block">
+      <div id="score-val">0</div>
+      <div id="score-sub">
+        <div id="score-lbl">Score</div>
+        <div id="kills-val">0 kills</div>
+      </div>
+    </div>
+    <div id="hp-wrap">
+      <div id="hp-label-row">
+        <span id="hp-lbl">Health</span>
+        <span id="hp-text">100 HP</span>
+      </div>
+      <div id="hp-track"><div id="hp-bar"></div></div>
+    </div>
   </div>
+
+  <!-- bottom right — minimap -->
   <div id="mm-wrap">
-    <canvas id="mm" width="140" height="140"></canvas>
-    <div id="mm-lbl">MAP</div>
+    <canvas id="mm" width="150" height="150"></canvas>
+    <div id="mm-lbl">Map</div>
   </div>
 </div>
 
@@ -136,173 +218,155 @@ function resize(){ VW = canvas.width = window.innerWidth; VH = canvas.height = w
 resize();
 window.addEventListener('resize', resize);
 
-// ── Socket ────────────────────────────────────────────────────────────────────
 const socket = io({ transports: ['websocket'] });
 
-// ── Constants (must match server.js) ─────────────────────────────────────────
-const SV_PLAYER_SPEED = 4.0;
-const SV_PLAYER_R     = 15;
+// ── Constants — must match server.js ─────────────────────────────────────────
+const SV_SPEED = 4.0;
+const SV_R     = 15;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let myId = null, worldW = 2400, worldH = 2400;
-let obstacles = [], playerR = SV_PLAYER_R;
-let gameState = null, inGame = false;
-let camX = 1200, camY = 1200;
-let mouseX = 0, mouseY = 0;
-let shootDown = false, shootCooldown = 0;
-let ping = 0, fps = 0, fCount = 0, fTimer = 0, fLast = 0;
-let prevScore = -1, prevHp = -1, prevKills = -1;
-let deadTimer = null;
+let myId=null, worldW=2400, worldH=2400, obstacles=[], playerR=SV_R;
+let gameState=null, inGame=false;
+let camX=1200, camY=1200;
+let mouseX=0, mouseY=0;
+let shootDown=false, shootCooldown=0;
+let ping=0, fps=0, fCount=0, fTimer=0, fLast=0;
+let prevScore=-1, prevHp=-1, prevKills=-1;
+let deadTimer=null;
 
-// ── CLIENT-SIDE PREDICTION ────────────────────────────────────────────────────
-// local = what we render for ourselves, updated every frame instantly.
-// Server positions correct us gently via LERP.
+// ── Client-side prediction ────────────────────────────────────────────────────
 const local = { x:1200, y:1200, angle:0, alive:true, hp:100, score:0, kills:0, color:'#e74c3c', name:'' };
 
-function predictMove(dt) {
-  if (!local.alive) return;
-  const k = keys;
-  let dx = 0, dy = 0;
-  if (k['KeyW'] || k['ArrowUp'])    dy -= 1;
-  if (k['KeyS'] || k['ArrowDown'])  dy += 1;
-  if (k['KeyA'] || k['ArrowLeft'])  dx -= 1;
-  if (k['KeyD'] || k['ArrowRight']) dx += 1;
-  if (dx || dy) {
-    const len = Math.sqrt(dx*dx + dy*dy);
-    const spd = SV_PLAYER_SPEED * (dt / 16.67); // frame-rate independent
-    dx = dx / len * spd;
-    dy = dy / len * spd;
-    // client-side wall slide
-    const nx = clamp(local.x + dx, playerR, worldW - playerR);
-    const ny = clamp(local.y + dy, playerR, worldH - playerR);
-    if (!overlapsObstacleLocal(nx, local.y)) local.x = nx;
-    if (!overlapsObstacleLocal(local.x, ny)) local.y = ny;
+function clamp(v,lo,hi){ return v<lo?lo:v>hi?hi:v; }
+
+function overlapsObs(x,y){
+  const r=playerR;
+  for(const o of obstacles){
+    const nx=clamp(x,o.x,o.x+o.w), ny=clamp(y,o.y,o.y+o.h);
+    const dx=x-nx, dy=y-ny;
+    if(dx*dx+dy*dy<r*r) return true;
   }
-  // angle is ALWAYS instant — purely from mouse, no server round trip
-  local.angle = Math.atan2(mouseY - VH / 2, mouseX - VW / 2);
+  return x<r||x>worldW-r||y<r||y>worldH-r;
 }
 
-function reconcile(serverMe) {
-  // Smoothly nudge our predicted position toward server position.
-  // Large gaps snap immediately to avoid rubberbanding.
-  if (!serverMe) return;
-  const dx = serverMe.x - local.x, dy = serverMe.y - local.y;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  if (dist > 80) {
-    // Too far off — hard snap (e.g. after respawn)
-    local.x = serverMe.x; local.y = serverMe.y;
-  } else {
-    local.x += dx * 0.12;
-    local.y += dy * 0.12;
-  }
-  // Sync non-positional fields from server (hp, score, kills, alive)
-  local.alive  = serverMe.alive;
-  local.hp     = serverMe.hp;
-  local.score  = serverMe.score;
-  local.kills  = serverMe.kills;
-  local.color  = serverMe.color;
-  local.name   = serverMe.name;
+function predictMove(dt){
+  if(!local.alive) return;
+  local.angle = Math.atan2(mouseY-VH/2, mouseX-VW/2); // instant aim
+  let dx=0,dy=0;
+  if(keys['KeyW']||keys['ArrowUp'])    dy-=1;
+  if(keys['KeyS']||keys['ArrowDown'])  dy+=1;
+  if(keys['KeyA']||keys['ArrowLeft'])  dx-=1;
+  if(keys['KeyD']||keys['ArrowRight']) dx+=1;
+  if(!dx&&!dy) return;
+  const len=Math.sqrt(dx*dx+dy*dy);
+  const spd=SV_SPEED*(dt/16.67);
+  dx=dx/len*spd; dy=dy/len*spd;
+  const nx=clamp(local.x+dx,playerR,worldW-playerR);
+  const ny=clamp(local.y+dy,playerR,worldH-playerR);
+  if(!overlapsObs(nx,local.y)) local.x=nx;
+  if(!overlapsObs(local.x,ny)) local.y=ny;
 }
 
-function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-
-function overlapsObstacleLocal(x, y) {
-  const r = playerR;
-  for (const o of obstacles) {
-    const nearX = clamp(x, o.x, o.x + o.w);
-    const nearY = clamp(y, o.y, o.y + o.h);
-    const dx = x - nearX, dy = y - nearY;
-    if (dx*dx + dy*dy < r*r) return true;
-  }
-  if (x < r || x > worldW-r || y < r || y > worldH-r) return true;
-  return false;
+function reconcile(srv){
+  if(!srv) return;
+  const dx=srv.x-local.x, dy=srv.y-local.y;
+  const d=Math.sqrt(dx*dx+dy*dy);
+  if(d>80){ local.x=srv.x; local.y=srv.y; }
+  else { local.x+=dx*0.12; local.y+=dy*0.12; }
+  local.hp=srv.hp; local.score=srv.score; local.kills=srv.kills;
+  local.alive=srv.alive; local.color=srv.color; local.name=srv.name;
 }
 
-// ── Grid (pre-baked tile pattern) ─────────────────────────────────────────────
-const GRID_TILE = 80;
-const gridCanvas = document.createElement('canvas');
-gridCanvas.width = gridCanvas.height = GRID_TILE;
-const gctx = gridCanvas.getContext('2d');
-gctx.fillStyle = '#1a1a2e'; gctx.fillRect(0,0,GRID_TILE,GRID_TILE);
-gctx.strokeStyle = 'rgba(255,255,255,0.04)'; gctx.lineWidth = 1;
-gctx.beginPath(); gctx.moveTo(GRID_TILE,0); gctx.lineTo(GRID_TILE,GRID_TILE); gctx.stroke();
-gctx.beginPath(); gctx.moveTo(0,GRID_TILE); gctx.lineTo(GRID_TILE,GRID_TILE); gctx.stroke();
-const gridPat = ctx.createPattern(gridCanvas, 'repeat');
+// ── Pre-baked assets ──────────────────────────────────────────────────────────
+const GRID_TILE=80;
+const gridCv=document.createElement('canvas'); gridCv.width=gridCv.height=GRID_TILE;
+const gc=gridCv.getContext('2d');
+gc.fillStyle='#1a1a2e'; gc.fillRect(0,0,GRID_TILE,GRID_TILE);
+gc.strokeStyle='rgba(255,255,255,0.04)'; gc.lineWidth=1;
+gc.beginPath(); gc.moveTo(GRID_TILE,0); gc.lineTo(GRID_TILE,GRID_TILE); gc.stroke();
+gc.beginPath(); gc.moveTo(0,GRID_TILE); gc.lineTo(GRID_TILE,GRID_TILE); gc.stroke();
+const gridPat=ctx.createPattern(gridCv,'repeat');
 
-// ── Obstacle offscreen canvas ─────────────────────────────────────────────────
-let obstacleCanvas = null;
-function buildObstacleCanvas() {
-  obstacleCanvas = document.createElement('canvas');
-  obstacleCanvas.width = worldW; obstacleCanvas.height = worldH;
-  const oc = obstacleCanvas.getContext('2d');
-  for (const o of obstacles) {
-    oc.fillStyle = 'rgba(0,0,0,0.35)'; oc.fillRect(o.x+5,o.y+5,o.w,o.h);
-    oc.fillStyle = '#2c3e6a';          oc.fillRect(o.x,o.y,o.w,o.h);
-    oc.fillStyle = 'rgba(255,255,255,0.07)';
+let obsCv=null;
+function buildObsCv(){
+  obsCv=document.createElement('canvas'); obsCv.width=worldW; obsCv.height=worldH;
+  const oc=obsCv.getContext('2d');
+  for(const o of obstacles){
+    oc.fillStyle='rgba(0,0,0,0.35)'; oc.fillRect(o.x+5,o.y+5,o.w,o.h);
+    oc.fillStyle='#2c3e6a';          oc.fillRect(o.x,o.y,o.w,o.h);
+    oc.fillStyle='rgba(255,255,255,0.07)';
     oc.fillRect(o.x,o.y,o.w,3); oc.fillRect(o.x,o.y,3,o.h);
-    oc.strokeStyle = 'rgba(100,130,220,0.25)'; oc.lineWidth=1;
+    oc.strokeStyle='rgba(100,130,220,0.25)'; oc.lineWidth=1;
     oc.strokeRect(o.x+.5,o.y+.5,o.w-1,o.h-1);
   }
 }
 
-// ── Player gradient cache ─────────────────────────────────────────────────────
-const gradCache = {};
-function getGrad(color, r) {
-  const key = color+r;
-  if (gradCache[key]) return gradCache[key];
-  const size = (r+4)*2;
-  const pc = document.createElement('canvas'); pc.width = pc.height = size;
-  const px = pc.getContext('2d');
-  const cx = size/2, cy = size/2;
-  const lighten = h => {
+const gradCache={};
+function getGrad(color,r){
+  const key=color+r; if(gradCache[key]) return gradCache[key];
+  const size=(r+4)*2, pc=document.createElement('canvas');
+  pc.width=pc.height=size; const px=pc.getContext('2d');
+  const cx=size/2,cy=size/2;
+  const light=h=>{
     try{ return `rgb(${Math.min(255,parseInt(h.slice(1,3),16)+55)},${Math.min(255,parseInt(h.slice(3,5),16)+55)},${Math.min(255,parseInt(h.slice(5,7),16)+55)})`; }
     catch{ return h; }
   };
-  const g = px.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
-  g.addColorStop(0,lighten(color)); g.addColorStop(1,color);
+  const g=px.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
+  g.addColorStop(0,light(color)); g.addColorStop(1,color);
   px.fillStyle=g; px.beginPath(); px.arc(cx,cy,r,0,Math.PI*2); px.fill();
   gradCache[key]=pc; return pc;
 }
 
-// ── Bullet image cache ────────────────────────────────────────────────────────
-const bulletCache = {};
-function getBulletImg(color) {
-  if (bulletCache[color]) return bulletCache[color];
-  const bc = document.createElement('canvas'); bc.width=bc.height=18;
-  const bx = bc.getContext('2d');
+const bulletCache={};
+function getBullet(color){
+  if(bulletCache[color]) return bulletCache[color];
+  const bc=document.createElement('canvas'); bc.width=bc.height=18;
+  const bx=bc.getContext('2d');
   bx.fillStyle=color+'44'; bx.beginPath(); bx.arc(9,9,8,0,Math.PI*2); bx.fill();
   bx.fillStyle=color;       bx.beginPath(); bx.arc(9,9,5,0,Math.PI*2); bx.fill();
   bx.fillStyle='#fff';      bx.beginPath(); bx.arc(7,7,2,0,Math.PI*2); bx.fill();
   bulletCache[color]=bc; return bc;
 }
 
-// ── Input ─────────────────────────────────────────────────────────────────────
-const keys = {};
-document.addEventListener('keydown', e => { keys[e.code]=true; });
-document.addEventListener('keyup',   e => { keys[e.code]=false; });
-canvas.addEventListener('mousemove', e => { mouseX=e.clientX; mouseY=e.clientY; });
-canvas.addEventListener('mousedown', e => { if(e.button===0) shootDown=true; });
-canvas.addEventListener('mouseup',   e => { if(e.button===0) shootDown=false; });
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-document.getElementById('name-input').addEventListener('keydown',e=>{ if(e.key==='Enter') joinGame(); });
-document.getElementById('play-btn').addEventListener('click', joinGame);
+// minimap obstacle buffer — draw once
+let mmObsCv=null;
+function buildMmObs(){
+  if(mmObsCv) return;
+  mmObsCv=document.createElement('canvas'); mmObsCv.width=mmObsCv.height=150;
+  const mc=mmObsCv.getContext('2d');
+  mc.fillStyle='#0f0f20'; mc.fillRect(0,0,150,150);
+  const sx=150/worldW,sy=150/worldH;
+  mc.fillStyle='#2c3e6a';
+  for(const o of obstacles) mc.fillRect(o.x*sx,o.y*sy,o.w*sx,o.h*sy);
+}
 
-// ── Join ──────────────────────────────────────────────────────────────────────
-function joinGame() {
-  const name = document.getElementById('name-input').value.trim() || `Player${Math.floor(Math.random()*9999)}`;
-  local.name = name;
-  socket.emit('join', { name });
+// ── Input ─────────────────────────────────────────────────────────────────────
+const keys={};
+document.addEventListener('keydown',e=>{ keys[e.code]=true; e.code==='Space'&&e.preventDefault(); });
+document.addEventListener('keyup',  e=>{ keys[e.code]=false; });
+canvas.addEventListener('mousemove',e=>{ mouseX=e.clientX; mouseY=e.clientY; });
+canvas.addEventListener('mousedown',e=>{ if(e.button===0) shootDown=true; });
+canvas.addEventListener('mouseup',  e=>{ if(e.button===0) shootDown=false; });
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+document.getElementById('name-input').addEventListener('keydown',e=>{ if(e.key==='Enter') joinGame(); });
+document.getElementById('play-btn').addEventListener('click',joinGame);
+
+function joinGame(){
+  const name=document.getElementById('name-input').value.trim()||`Player${Math.floor(Math.random()*9999)}`;
+  local.name=name;
+  socket.emit('join',{name});
   document.getElementById('menu').style.display='none';
   document.getElementById('hud').style.display='block';
   inGame=true;
 }
 
-// ── HUD (update only on change) ───────────────────────────────────────────────
-function setHp(hp) {
+// ── HUD helpers ───────────────────────────────────────────────────────────────
+function setHp(hp){
   if(hp===prevHp) return; prevHp=hp;
   const p=Math.max(0,hp);
+  const col=p>60?'#2ecc71':p>30?'#f39c12':'#e74c3c';
   document.getElementById('hp-bar').style.width=p+'%';
-  document.getElementById('hp-bar').style.background=p>60?'#2ecc71':p>30?'#f39c12':'#e74c3c';
+  document.getElementById('hp-bar').style.background=col;
   document.getElementById('hp-text').textContent=Math.round(p)+' HP';
 }
 function setScore(s){ if(s===prevScore)return; prevScore=s; document.getElementById('score-val').textContent=s; }
@@ -341,26 +405,20 @@ function showDead(ms){
   },1000);
 }
 
-// ── Minimap ───────────────────────────────────────────────────────────────────
-let mmReady=false;
-const mmObsBuf=document.createElement('canvas');
-mmObsBuf.width=mmObsBuf.height=140;
-
-function buildMinimapObstacles(){
-  if(mmReady||!obstacles.length) return;
-  mmReady=true;
-  const mc=mmObsBuf.getContext('2d');
-  mc.fillStyle='#0f0f20'; mc.fillRect(0,0,140,140);
-  const sx=140/worldW, sy=140/worldH;
-  mc.fillStyle='#2c3e6a';
-  for(const o of obstacles) mc.fillRect(o.x*sx,o.y*sy,o.w*sx,o.h*sy);
+// ── Perf bar — colour-coded ping ──────────────────────────────────────────────
+function updatePerf(){
+  document.getElementById('pb-fps-val').textContent=fps+' FPS';
+  const pingCol=ping<60?'#2ecc71':ping<120?'#f39c12':'#e74c3c';
+  document.getElementById('pb-ping-val').textContent=ping+'ms';
+  document.getElementById('pb-ping-val').style.color=pingCol;
+  document.getElementById('pb-ping-dot').style.background=pingCol;
 }
 
+// ── Minimap ───────────────────────────────────────────────────────────────────
 function drawMinimap(){
-  buildMinimapObstacles();
-  const MW=140,MH=140,sx=MW/worldW,sy=MH/worldH;
-  mmX.drawImage(mmObsBuf,0,0);
-  // other players
+  buildMmObs();
+  const MW=150,MH=150,sx=MW/worldW,sy=MH/worldH;
+  mmX.drawImage(mmObsCv,0,0);
   if(gameState){
     for(const p of gameState.players){
       if(!p.alive||p.id===myId) continue;
@@ -368,57 +426,51 @@ function drawMinimap(){
       mmX.beginPath(); mmX.arc(p.x*sx,p.y*sy,2.5,0,Math.PI*2); mmX.fill();
     }
   }
-  // me — use local position for instant response
+  // local player dot — instant position
   mmX.fillStyle='#fff';
   mmX.beginPath(); mmX.arc(local.x*sx,local.y*sy,4,0,Math.PI*2); mmX.fill();
-  // viewport
-  mmX.strokeStyle='rgba(255,255,255,0.25)'; mmX.lineWidth=1;
+  // viewport rect
+  mmX.strokeStyle='rgba(255,255,255,0.3)'; mmX.lineWidth=1;
   mmX.strokeRect((camX-VW/2)*sx,(camY-VH/2)*sy,VW*sx,VH*sy);
-  mmX.strokeStyle='rgba(255,255,255,0.12)';
-  mmX.strokeRect(0,0,MW,MH);
+  mmX.strokeStyle='rgba(255,255,255,0.1)'; mmX.strokeRect(0,0,MW,MH);
 }
 
 // ── World→screen ──────────────────────────────────────────────────────────────
 function ws(wx,wy){ return [wx-camX+VW/2, wy-camY+VH/2]; }
 
-// ── Draw calls ────────────────────────────────────────────────────────────────
+// ── Draw ──────────────────────────────────────────────────────────────────────
 function drawGrid(){
-  const offX=(VW/2-camX)%GRID_TILE, offY=(VH/2-camY)%GRID_TILE;
-  ctx.save(); ctx.translate(offX,offY);
-  ctx.fillStyle=gridPat; ctx.fillRect(-offX,-offY,VW+GRID_TILE,VH+GRID_TILE);
+  const ox=(VW/2-camX)%GRID_TILE, oy=(VH/2-camY)%GRID_TILE;
+  ctx.save(); ctx.translate(ox,oy);
+  ctx.fillStyle=gridPat; ctx.fillRect(-ox,-oy,VW+GRID_TILE,VH+GRID_TILE);
   ctx.restore();
 }
 
 function drawBorder(){
   const [bx,by]=ws(0,0);
-  ctx.strokeStyle='rgba(231,76,60,0.4)'; ctx.lineWidth=4;
-  ctx.strokeRect(bx,by,worldW,worldH);
-  ctx.strokeStyle='rgba(231,76,60,0.1)'; ctx.lineWidth=20;
-  ctx.strokeRect(bx,by,worldW,worldH);
+  ctx.strokeStyle='rgba(231,76,60,0.45)'; ctx.lineWidth=4; ctx.strokeRect(bx,by,worldW,worldH);
+  ctx.strokeStyle='rgba(231,76,60,0.1)'; ctx.lineWidth=22; ctx.strokeRect(bx,by,worldW,worldH);
 }
 
 function drawObstacles(){
-  if(!obstacleCanvas) return;
-  const [bx,by]=ws(0,0);
-  ctx.drawImage(obstacleCanvas,bx,by);
+  if(!obsCv) return;
+  const [bx,by]=ws(0,0); ctx.drawImage(obsCv,bx,by);
 }
 
-function drawPlayer(p, isLocalPlayer){
-  // isLocalPlayer = true means we use local.x/y/angle instead of server values
-  const px = isLocalPlayer ? local.x : p.x;
-  const py = isLocalPlayer ? local.y : p.y;
-  const pangle = isLocalPlayer ? local.angle : p.angle;
-  const palive = isLocalPlayer ? local.alive : p.alive;
-  const pcolor = p.color || local.color;
-  const pname  = p.name  || local.name;
-  const php    = isLocalPlayer ? local.hp : p.hp;
+function drawPlayer(p, useLocal){
+  const px=useLocal?local.x:p.x, py=useLocal?local.y:p.y;
+  const pangle=useLocal?local.angle:p.angle;
+  const palive=useLocal?local.alive:p.alive;
+  const pcolor=p.color||local.color;
+  const pname=p.name||local.name;
+  const php=useLocal?local.hp:p.hp;
+  const r=playerR;
 
   const [sx,sy]=ws(px,py);
-  const r=playerR;
-  if(sx<-r-60||sx>VW+r+60||sy<-r-60||sy>VH+r+60) return;
+  if(sx<-r-80||sx>VW+r+80||sy<-r-80||sy>VH+r+80) return;
 
   if(!palive){
-    ctx.save(); ctx.globalAlpha=0.22;
+    ctx.save(); ctx.globalAlpha=0.2;
     ctx.fillStyle=pcolor; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
     ctx.globalAlpha=1; ctx.restore();
     return;
@@ -427,20 +479,22 @@ function drawPlayer(p, isLocalPlayer){
   ctx.save();
   ctx.translate(sx,sy);
 
-  // glow rings for local player
-  if(isLocalPlayer){
-    ctx.fillStyle=pcolor+'30'; ctx.beginPath(); ctx.arc(0,0,r+7,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=pcolor+'18'; ctx.beginPath(); ctx.arc(0,0,r+14,0,Math.PI*2); ctx.fill();
+  // glow for local player
+  if(useLocal){
+    ctx.fillStyle=pcolor+'28'; ctx.beginPath(); ctx.arc(0,0,r+8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=pcolor+'14'; ctx.beginPath(); ctx.arc(0,0,r+16,0,Math.PI*2); ctx.fill();
   }
 
-  // body (pre-baked gradient)
-  const gc=getGrad(pcolor,r);
-  ctx.drawImage(gc,-gc.width/2,-gc.height/2);
+  // body
+  const gd=getGrad(pcolor,r);
+  ctx.drawImage(gd,-gd.width/2,-gd.height/2);
 
-  // gun barrel — rotates to aim angle
+  // gun barrel
   ctx.rotate(pangle);
-  ctx.fillStyle='#1a1a2e'; ctx.fillRect(r*.35,-5,r+6,10);
-  ctx.fillStyle=pcolor;    ctx.fillRect(r*.35,-3.5,r+4,7);
+  ctx.fillStyle='#0f0f20';  ctx.fillRect(r*.35,-5.5,r+8,11);
+  ctx.fillStyle=pcolor;      ctx.fillRect(r*.35,-4,r+6,8);
+  // muzzle cap
+  ctx.fillStyle='#0f0f20';  ctx.fillRect(r+6,-3,5,6);
 
   ctx.restore();
 
@@ -448,41 +502,44 @@ function drawPlayer(p, isLocalPlayer){
   ctx.save();
   ctx.font='bold 13px "Segoe UI",Arial,sans-serif';
   ctx.textAlign='center';
-  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillText(pname,sx+1,sy-r-10);
-  ctx.fillStyle=isLocalPlayer?'#fff':'rgba(255,255,255,0.9)'; ctx.fillText(pname,sx,sy-r-11);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.7)';
+  ctx.fillText(pname,sx+1,sy-r-9);
+  ctx.fillStyle=useLocal?'#fff':'rgba(255,255,255,0.92)';
+  ctx.fillText(pname,sx,sy-r-10);
   ctx.restore();
 
-  // hp bar
+  // hp bar — only when damaged
   if(php<100){
-    const bw=r*2.8,bh=5,bxp=sx-bw/2,byp=sy+r+6;
-    ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(bxp-1,byp-1,bw+2,bh+2);
+    const bw=r*3,bh=5,bx2=sx-bw/2,by2=sy+r+7;
+    ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(bx2-1,by2-1,bw+2,bh+2);
     ctx.fillStyle=php>60?'#2ecc71':php>30?'#f39c12':'#e74c3c';
-    ctx.fillRect(bxp,byp,bw*(php/100),bh);
+    ctx.fillRect(bx2,by2,bw*(php/100),bh);
   }
 }
 
 function drawBullet(b){
   const [sx,sy]=ws(b.x,b.y);
   if(sx<-20||sx>VW+20||sy<-20||sy>VH+20) return;
-  ctx.drawImage(getBulletImg(b.c||'#ffffff'),sx-9,sy-9);
+  ctx.drawImage(getBullet(b.c||'#ffffff'),sx-9,sy-9);
 }
 
-// ── Input sending — 30/s, only when changed ───────────────────────────────────
-let lastKeyStr='', lastAngle=0, inputTick=0;
+// ── Input send ────────────────────────────────────────────────────────────────
+let lastKeyStr='', lastSentAngle=0, inputTick=0;
 function sendInput(){
   inputTick++;
-  if(inputTick%2!==0) return;
+  if(inputTick%2!==0) return; // 30/s
   const k={
     up:   !!(keys['KeyW']||keys['ArrowUp']),
     down: !!(keys['KeyS']||keys['ArrowDown']),
     left: !!(keys['KeyA']||keys['ArrowLeft']),
     right:!!(keys['KeyD']||keys['ArrowRight']),
   };
-  const angle=local.angle;
   const kStr=`${+k.up}${+k.down}${+k.left}${+k.right}`;
-  if(kStr===lastKeyStr&&Math.abs(angle-lastAngle)<0.02) return;
-  lastKeyStr=kStr; lastAngle=angle;
-  socket.emit('input',{keys:k,angle});
+  const angleSame=Math.abs(local.angle-lastSentAngle)<0.02;
+  if(kStr===lastKeyStr&&angleSame) return;
+  lastKeyStr=kStr; lastSentAngle=local.angle;
+  socket.emit('input',{keys:k,angle:local.angle});
 }
 
 function handleShoot(){
@@ -493,44 +550,29 @@ function handleShoot(){
   if(shootCooldown>0) shootCooldown--;
 }
 
-// ── Ping display with colour coding ───────────────────────────────────────────
-function updatePingBadge(){
-  const el=document.getElementById('ping-badge');
-  el.textContent=ping+'ms';
-  el.style.color = ping<60?'#2ecc71':ping<120?'#f39c12':'#e74c3c';
-}
-
 // ── Main loop ─────────────────────────────────────────────────────────────────
 function loop(ts){
   requestAnimationFrame(loop);
   const dt=ts-(fLast||ts); fLast=ts;
 
-  // FPS
+  // FPS counter
   fCount++; fTimer+=dt;
   if(fTimer>=600){
     fps=Math.round(fCount/(fTimer/1000)); fCount=0; fTimer=0;
-    document.getElementById('fps-badge').textContent=fps+' FPS';
-    updatePingBadge();
+    updatePerf();
   }
 
   if(inGame&&myId){
-    // 1. Predict our own movement INSTANTLY (no server wait)
     predictMove(dt);
-
-    // 2. Reconcile with server (gentle correction)
-    const serverMe = gameState?.players?.find(p=>p.id===myId);
-    reconcile(serverMe);
-
-    // 3. Send input to server (throttled)
+    reconcile(gameState?.players?.find(p=>p.id===myId));
     sendInput();
     handleShoot();
-
-    // 4. Camera follows LOCAL position — instant, no lag
-    camX+=(local.x-camX)*0.14;
-    camY+=(local.y-camY)*0.14;
+    // camera follows local pos — instant feel
+    camX+=(local.x-camX)*0.13;
+    camY+=(local.y-camY)*0.13;
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // Render
   ctx.fillStyle='#1a1a2e'; ctx.fillRect(0,0,VW,VH);
   drawGrid();
   drawBorder();
@@ -538,84 +580,76 @@ function loop(ts){
 
   if(gameState){
     for(const b of gameState.bullets) drawBullet(b);
-
-    // Draw other players from server state, draw ourselves from local state
+    // other players
     for(const p of gameState.players){
-      if(p.id===myId) continue; // skip — we draw local version below
-      drawPlayer(p, false);
+      if(p.id===myId) continue;
+      drawPlayer(p,false);
     }
   }
 
-  // Always draw local player (even before first server state arrives)
-  if(myId) drawPlayer({color:local.color,name:local.name,hp:local.hp}, true);
+  // local player always on top
+  if(myId) drawPlayer({color:local.color,name:local.name,hp:local.hp},true);
 
-  // HUD
-  setHp(local.hp);
-  setScore(local.score);
-  setKills(local.kills);
+  setHp(local.hp); setScore(local.score); setKills(local.kills);
   drawMinimap();
 }
 requestAnimationFrame(loop);
 
-// ── Socket events ─────────────────────────────────────────────────────────────
+// ── Socket ────────────────────────────────────────────────────────────────────
 socket.on('connect',()=>{
   setInterval(()=>socket.emit('ping_check',Date.now()),1500);
 });
 
 socket.on('pong_check',ts=>{
   ping=Date.now()-ts;
-  updatePingBadge();
+  updatePerf(); // update immediately when ping arrives, don't wait for FPS timer
 });
 
 socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderboard})=>{
   myId=playerId; worldW=ww; worldH=wh; obstacles=obs; playerR=pr;
   local.x=ww/2; local.y=wh/2; camX=ww/2; camY=wh/2;
-  buildObstacleCanvas();
-  buildMinimapObstacles();
+  buildObsCv(); buildMmObs();
   if(leaderboard) updateLB(leaderboard);
 });
 
+// FIX: single 'state' handler — was registered twice before causing the second to override first
 socket.on('state',state=>{
   gameState=state;
-  // Sync non-positional local fields from server immediately
   const me=state.players.find(p=>p.id===myId);
-  if(me){ local.color=me.color; local.name=me.name; }
+  if(!me) return;
+  // sync non-positional fields
+  local.color=me.color; local.name=me.name;
+  // FIX: respawn snap — if server says alive but we think dead, hard snap position
+  if(me.alive&&!local.alive){
+    local.x=me.x; local.y=me.y;
+    local.alive=true; local.hp=me.hp;
+  }
 });
 
 socket.on('playerCount',n=>{
   document.getElementById('menu-online').textContent=n+' player'+(n!==1?'s':'')+' online';
-  document.getElementById('online-badge').textContent=n+' online';
+  document.getElementById('pb-online-val').textContent=n+' online';
 });
 
-socket.on('damaged',({hp})=>{
-  flashRed(); local.hp=hp; prevHp=-1;
-});
+socket.on('damaged',({hp})=>{ flashRed(); local.hp=hp; prevHp=-1; });
 
 socket.on('died',({victimId,respawnIn})=>{
   if(victimId===myId){ local.alive=false; showDead(respawnIn); }
-});
-
-// When server says we respawned, snap local position
-socket.on('state',state=>{
-  const me=state.players.find(p=>p.id===myId);
-  if(me&&!local.alive&&me.alive){
-    // just respawned — hard snap to server spawn position
-    local.x=me.x; local.y=me.y; local.alive=true; local.hp=me.hp;
-  }
 });
 
 socket.on('kill',({killerName,killerColor,victimName,victimColor})=>{
   const isMe=killerName===local.name;
   addKill(
     `<span style="color:${killerColor}">${killerName}</span>`+
-    ` <span style="color:rgba(255,255,255,0.4)">eliminated</span> `+
+    `<span style="color:rgba(255,255,255,0.35)"> eliminated </span>`+
     `<span style="color:${victimColor}">${victimName}</span>`+
-    (isMe?' <span style="color:#f39c12">+100</span>':'')
+    (isMe?` <span style="color:#f39c12;font-size:11px">+100</span>`:'')
   );
 });
 
-socket.on('leaderboard',data=>updateLB(data));
+socket.on('leaderboard',updateLB);
 
+// FIX: playerLeft — remove from gameState cleanly
 socket.on('playerLeft',id=>{
   if(gameState) gameState.players=gameState.players.filter(p=>p.id!==id);
 });
@@ -624,10 +658,11 @@ socket.on('disconnect',()=>{
   document.getElementById('menu').innerHTML=`
     <div class="menu-logo" style="font-size:42px;background:linear-gradient(135deg,#e74c3c,#c0392b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Disconnected</div>
     <div class="menu-sub">Lost connection to server</div>
-    <div class="menu-box"><button id="play-btn" onclick="location.reload()">Reconnect</button></div>
+    <div class="menu-box"><button id="play-btn" onclick="location.reload()" style="width:100%;padding:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;cursor:pointer">Reconnect</button></div>
   `;
   document.getElementById('menu').style.display='flex';
   document.getElementById('hud').style.display='none';
+  document.getElementById('perf-bar').style.display='flex';
 });
 </script>
 </body>

@@ -1,4 +1,3 @@
-cat > /home/claude/arena-io-v2/server.js << 'SERVEREOF'
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -538,4 +537,4 @@ setInterval(() => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Arena.io — Rounds on port ${PORT}`));
 SERVEREOF
-echo "server.js done — $(wc -l < /home/claude/arena-io-v2/server.js) lines"
+

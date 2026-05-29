@@ -1,3 +1,4 @@
+cat > /home/claude/arena-io-v2/public/index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,68 +11,43 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 canvas{display:block;position:fixed;inset:0}
 
 /* ── MENU ── */
-#menu{position:fixed;inset:0;background:linear-gradient(160deg,#0f0f23 0%,#1a1a3e 50%,#0f0f23 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;z-index:50}
+#menu{position:fixed;inset:0;background:linear-gradient(160deg,#0f0f23 0%,#1a1a3e 50%,#0f0f23 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50}
 .menu-logo{font-size:72px;font-weight:900;letter-spacing:-2px;background:linear-gradient(135deg,#e74c3c,#e91e8c,#9b59b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 4px 24px #e74c3c55);margin-bottom:2px;animation:logobob 3s ease-in-out infinite}
 @keyframes logobob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-.menu-sub{font-size:13px;color:#555580;letter-spacing:3px;margin-bottom:40px;text-transform:uppercase}
+.menu-sub{font-size:13px;color:#555580;letter-spacing:3px;margin-bottom:36px;text-transform:uppercase}
 .menu-box{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 36px;display:flex;flex-direction:column;align-items:center;gap:14px;width:320px;box-shadow:0 8px 40px #00000066}
 #name-input{width:100%;padding:13px 18px;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:17px;font-family:inherit;outline:none;text-align:center;transition:border-color .2s,box-shadow .2s}
 #name-input::placeholder{color:#44445a}
 #name-input:focus{border-color:#e74c3c88;box-shadow:0 0 0 3px #e74c3c22}
 #play-btn{width:100%;padding:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;font-family:inherit;letter-spacing:1px;cursor:pointer;transition:all .15s;box-shadow:0 4px 16px #e74c3c44}
-#play-btn:hover{background:linear-gradient(135deg,#e85c4c,#d44030);transform:translateY(-1px)}
+#play-btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px #e74c3c66}
 #play-btn:active{transform:translateY(0)}
 #menu-online{font-size:12px;color:#44445a;margin-top:4px}
-.menu-tips{font-size:11px;color:#33334a;text-align:center;margin-top:18px;line-height:2}
+.menu-tips{font-size:11px;color:#33334a;text-align:center;margin-top:16px;line-height:2}
 .menu-tips b{color:#555570}
 
-/* ══════════════════════════════════════════════
-   HUD LAYOUT — nothing overlaps
-   ┌──────────────────────────────────────────┐
-   │ [perf bar — top center, single row]      │
-   ├──────────┬───────────────────┬───────────┤
-   │          │  kill feed        │ leaderboard│
-   │          │  (top center)     │ (top right)│
-   │          │                   │            │
-   │          │                   │            │
-   │          │                   │            │
-   ├──────────┴───────────────────┴───────────┤
-   │ [score+hp — bottom left] [minimap — br]  │
-   └──────────────────────────────────────────┘
-   ══════════════════════════════════════════ */
+/* ── HUD ── */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none}
 
-/* ── PERF BAR — top center, single pill row, always on screen ── */
-#perf-bar{
-  position:fixed;top:12px;left:50%;transform:translateX(-50%);
-  display:flex;align-items:center;gap:6px;
-  background:rgba(0,0,0,0.55);
-  border:1px solid rgba(255,255,255,0.07);
-  border-radius:999px;
-  padding:5px 14px;
-  z-index:60;pointer-events:none;
-  backdrop-filter:blur(6px);
-  white-space:nowrap;
-}
+/* perf bar — top center, always on screen */
+#perf-bar{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.07);border-radius:999px;padding:5px 14px;z-index:60;pointer-events:none;backdrop-filter:blur(6px);white-space:nowrap}
 .pb-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.3px}
 .pb-dot{width:7px;height:7px;border-radius:50%}
 .pb-sep{width:1px;height:12px;background:rgba(255,255,255,0.12)}
-#pb-fps-dot{background:#2ecc71}
-#pb-ping-dot{background:#2ecc71}
-#pb-online-dot{background:#9b59b6}
-#pb-fps-val{color:#2ecc71}
-#pb-ping-val{color:#2ecc71}
-#pb-online-val{color:#9b59b6}
+#pb-fps-dot{background:#2ecc71}#pb-fps-val{color:#2ecc71}
+#pb-ping-dot{background:#2ecc71}#pb-ping-val{color:#2ecc71}
+#pb-online-dot{background:#9b59b6}#pb-online-val{color:#9b59b6}
 
-/* ── LEADERBOARD — top right, pushed down so it doesn't touch perf bar ── */
-#lb{
-  position:absolute;top:50px;right:14px;
-  background:rgba(0,0,0,0.6);
-  border-radius:12px;padding:12px 16px;
-  min-width:190px;
-  backdrop-filter:blur(6px);
-  border:1px solid rgba(255,255,255,0.07);
-}
+/* round timer — top center below perf bar */
+#round-bar{position:absolute;top:50px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+#round-label{font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase}
+#round-timer{font-size:28px;font-weight:900;color:#fff;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,0.5);letter-spacing:1px;font-variant-numeric:tabular-nums}
+#round-timer.urgent{color:#e74c3c;animation:timerpulse .6s ease-in-out infinite}
+@keyframes timerpulse{0%,100%{opacity:1}50%{opacity:.6}}
+#map-badge{font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-top:2px}
+
+/* leaderboard — top right */
+#lb{position:absolute;top:50px;right:14px;background:rgba(0,0,0,0.6);border-radius:12px;padding:12px 16px;min-width:190px;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.07)}
 #lb-head{font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;text-align:center}
 .lb-row{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12px;font-weight:600;border-radius:6px}
 .lb-row.me{background:rgba(255,255,255,0.07);padding:3px 6px;margin:0 -6px}
@@ -80,21 +56,12 @@ canvas{display:block;position:fixed;inset:0}
 .lb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,0.88)}
 .lb-pts{color:#f39c12;font-size:11px;font-weight:700;flex-shrink:0}
 
-/* ── KILL FEED — top center, below perf bar, left of leaderboard ── */
-#kf{
-  position:absolute;top:52px;left:50%;transform:translateX(-50%);
-  display:flex;flex-direction:column;align-items:center;gap:5px;
-  pointer-events:none;min-width:280px;max-width:420px;
-}
-.kf-row{
-  background:rgba(0,0,0,0.7);border-radius:20px;
-  padding:4px 16px;font-size:12px;font-weight:600;
-  white-space:nowrap;animation:kfout 3.5s forwards;
-  backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.06);
-}
+/* kill feed — left of round timer */
+#kf{position:absolute;top:52px;left:14px;display:flex;flex-direction:column;gap:5px;pointer-events:none;max-width:300px}
+.kf-row{background:rgba(0,0,0,0.7);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;white-space:nowrap;animation:kfout 3.5s forwards;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.06)}
 @keyframes kfout{0%,65%{opacity:1}100%{opacity:0}}
 
-/* ── BOTTOM LEFT — score + health stacked ── */
+/* bottom left — score + health */
 #hud-bl{position:absolute;bottom:20px;left:16px;display:flex;flex-direction:column;gap:6px}
 #score-block{display:flex;align-items:baseline;gap:6px}
 #score-val{font-size:28px;font-weight:900;color:#f39c12;line-height:1;text-shadow:0 2px 8px #f39c1244}
@@ -108,18 +75,55 @@ canvas{display:block;position:fixed;inset:0}
 #hp-track{width:190px;height:9px;background:rgba(255,255,255,0.1);border-radius:9px;overflow:hidden}
 #hp-bar{height:100%;border-radius:9px;background:#2ecc71;transition:width .12s,background .2s;width:100%}
 
-/* ── BOTTOM RIGHT — minimap ── */
+/* bottom right — minimap */
 #mm-wrap{position:absolute;bottom:20px;right:16px;display:flex;flex-direction:column;align-items:center;gap:3px}
 #mm{border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);display:block;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
 #mm-lbl{font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:2px;text-transform:uppercase}
 
-/* ── DEATH ── */
+/* death */
 #dead{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;display:none;pointer-events:none}
 #dead h2{font-size:38px;font-weight:900;color:#e74c3c;text-shadow:0 0 30px #e74c3c88;letter-spacing:2px}
 #dead p{font-size:13px;color:rgba(231,76,60,0.6);margin-top:10px;font-weight:600;letter-spacing:1px}
 
-/* ── HIT FLASH ── */
+/* hit flash */
 #flash{position:absolute;inset:0;background:transparent;pointer-events:none}
+
+/* chat */
+#chat-wrap{position:absolute;bottom:120px;left:16px;display:flex;flex-direction:column;gap:0;width:290px;pointer-events:none}
+#chat-log{display:flex;flex-direction:column;gap:3px;max-height:140px;overflow:hidden;justify-content:flex-end}
+.chat-msg{background:rgba(0,0,0,0.62);border-radius:8px;padding:4px 10px;font-size:12px;line-height:1.45;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.05);animation:chatfade 8s forwards;word-break:break-word}
+.chat-msg .cn{font-weight:700}.chat-msg .cm{color:rgba(255,255,255,0.82)}
+@keyframes chatfade{0%,70%{opacity:1}100%{opacity:0}}
+#chat-input-wrap{display:none;pointer-events:all;margin-top:5px;background:rgba(0,0,0,0.78);border:1.5px solid rgba(255,255,255,0.18);border-radius:10px;padding:7px 12px;backdrop-filter:blur(6px)}
+#chat-hint{font-size:9px;color:rgba(255,255,255,0.25);letter-spacing:1px;margin-bottom:3px;text-transform:uppercase}
+#chat-input{width:100%;background:transparent;border:none;color:#fff;font-size:13px;font-family:inherit;outline:none;caret-color:#e74c3c}
+#chat-open-hint{font-size:10px;color:rgba(255,255,255,0.13);margin-top:5px;letter-spacing:.5px;pointer-events:none}
+
+/* ── INTERMISSION SCREEN ── */
+#intermission{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:40;backdrop-filter:blur(8px)}
+#int-title{font-size:13px;color:rgba(255,255,255,0.35);letter-spacing:4px;text-transform:uppercase;margin-bottom:8px}
+#int-winner{font-size:36px;font-weight:900;margin-bottom:4px;letter-spacing:1px}
+#int-winner-sub{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:32px}
+#int-vote-label{font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:3px;text-transform:uppercase;margin-bottom:14px}
+#int-maps{display:flex;gap:14px;margin-bottom:28px;flex-wrap:wrap;justify-content:center}
+.map-card{background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.08);border-radius:14px;padding:18px 22px;cursor:pointer;transition:all .15s;text-align:center;min-width:140px;position:relative;pointer-events:all}
+.map-card:hover{background:rgba(255,255,255,0.1);transform:translateY(-2px)}
+.map-card.voted{border-color:currentColor;box-shadow:0 0 20px currentColor44}
+.map-emoji{font-size:32px;margin-bottom:6px}
+.map-name{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px}
+.map-desc{font-size:11px;color:rgba(255,255,255,0.4)}
+.map-votes{position:absolute;top:8px;right:10px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.08);padding:2px 7px;border-radius:99px}
+#int-countdown{font-size:13px;color:rgba(255,255,255,0.3);letter-spacing:2px}
+#int-countdown b{color:#fff;font-size:18px}
+
+/* ── MAP CHANGE BANNER ── */
+#map-banner{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:35;pointer-events:none}
+#map-banner-inner{background:rgba(0,0,0,0.85);border-radius:20px;padding:24px 48px;text-align:center;animation:bannerin .4s ease-out}
+@keyframes bannerin{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+#map-banner-emoji{font-size:48px;margin-bottom:8px}
+#map-banner-name{font-size:32px;font-weight:900;color:#fff;letter-spacing:2px}
+#map-banner-desc{font-size:13px;color:rgba(255,255,255,0.4);margin-top:4px}
+#map-banner-round{font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;letter-spacing:2px}
 </style>
 </head>
 <body>
@@ -127,72 +131,58 @@ canvas{display:block;position:fixed;inset:0}
 <!-- MENU -->
 <div id="menu">
   <div class="menu-logo">Arena.io</div>
-  <div class="menu-sub">Multiplayer Top-Down Shooter</div>
+  <div class="menu-sub">Multiplayer · Rounds · 5 Maps</div>
   <div class="menu-box">
     <input id="name-input" maxlength="16" placeholder="Enter your name" autocomplete="off" spellcheck="false">
     <button id="play-btn">Play Now</button>
     <div id="menu-online">— players online</div>
   </div>
   <div class="menu-tips">
-    <b>WASD</b> move &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Click</b> shoot<br>
-    100 points per kill · First to top the leaderboard wins
+    <b>WASD</b> move &nbsp;·&nbsp; <b>Mouse</b> aim &nbsp;·&nbsp; <b>Click</b> shoot &nbsp;·&nbsp; <b>Enter</b> chat<br>
+    3-minute rounds · Vote for the next map · Most kills wins
   </div>
 </div>
 
-<!-- GAME CANVAS -->
+<!-- CANVAS -->
 <canvas id="c"></canvas>
 
-<!-- PERF BAR — always visible, top center, single row pill -->
+<!-- PERF BAR — always visible -->
 <div id="perf-bar">
-  <div class="pb-item">
-    <div class="pb-dot" id="pb-fps-dot"></div>
-    <span id="pb-fps-val">-- FPS</span>
-  </div>
+  <div class="pb-item"><div class="pb-dot" id="pb-fps-dot"></div><span id="pb-fps-val">-- FPS</span></div>
   <div class="pb-sep"></div>
-  <div class="pb-item">
-    <div class="pb-dot" id="pb-ping-dot"></div>
-    <span id="pb-ping-val">-- ms</span>
-  </div>
+  <div class="pb-item"><div class="pb-dot" id="pb-ping-dot"></div><span id="pb-ping-val">-- ms</span></div>
   <div class="pb-sep"></div>
-  <div class="pb-item">
-    <div class="pb-dot" id="pb-online-dot"></div>
-    <span id="pb-online-val">0 online</span>
-  </div>
+  <div class="pb-item"><div class="pb-dot" id="pb-online-dot"></div><span id="pb-online-val">0 online</span></div>
 </div>
 
-<!-- HUD (shown after joining) -->
+<!-- HUD -->
 <div id="hud">
   <div id="flash"></div>
 
-  <!-- leaderboard — top right -->
-  <div id="lb">
-    <div id="lb-head">🏆 Leaderboard</div>
-    <div id="lb-rows"></div>
+  <!-- round timer — top center -->
+  <div id="round-bar">
+    <div id="round-label">Round 1 · Arena ⚔️</div>
+    <div id="round-timer">3:00</div>
+    <div id="map-badge"></div>
   </div>
 
-  <!-- kill feed — top center, below perf bar -->
+  <!-- leaderboard — top right -->
+  <div id="lb"><div id="lb-head">🏆 Leaderboard</div><div id="lb-rows"></div></div>
+
+  <!-- kill feed — top left -->
   <div id="kf"></div>
 
-  <!-- death overlay -->
-  <div id="dead">
-    <h2>YOU DIED</h2>
-    <p id="dead-txt">Respawning in 3s...</p>
-  </div>
+  <!-- death -->
+  <div id="dead"><h2>YOU DIED</h2><p id="dead-txt">Respawning...</p></div>
 
-  <!-- bottom left — score + health -->
+  <!-- bottom left -->
   <div id="hud-bl">
     <div id="score-block">
       <div id="score-val">0</div>
-      <div id="score-sub">
-        <div id="score-lbl">Score</div>
-        <div id="kills-val">0 kills</div>
-      </div>
+      <div id="score-sub"><div id="score-lbl">Score</div><div id="kills-val">0 kills</div></div>
     </div>
     <div id="hp-wrap">
-      <div id="hp-label-row">
-        <span id="hp-lbl">Health</span>
-        <span id="hp-text">100 HP</span>
-      </div>
+      <div id="hp-label-row"><span id="hp-lbl">Health</span><span id="hp-text">100 HP</span></div>
       <div id="hp-track"><div id="hp-bar"></div></div>
     </div>
   </div>
@@ -202,6 +192,36 @@ canvas{display:block;position:fixed;inset:0}
     <canvas id="mm" width="150" height="150"></canvas>
     <div id="mm-lbl">Map</div>
   </div>
+
+  <!-- chat -->
+  <div id="chat-wrap">
+    <div id="chat-log"></div>
+    <div id="chat-input-wrap">
+      <div id="chat-hint">Enter to send · Esc to close</div>
+      <input id="chat-input" maxlength="64" placeholder="Say something..." autocomplete="off" spellcheck="false">
+    </div>
+    <div id="chat-open-hint">Press Enter to chat</div>
+  </div>
+</div>
+
+<!-- INTERMISSION SCREEN -->
+<div id="intermission">
+  <div id="int-title">Round Over</div>
+  <div id="int-winner">—</div>
+  <div id="int-winner-sub"></div>
+  <div id="int-vote-label">Vote for next map</div>
+  <div id="int-maps"></div>
+  <div id="int-countdown">Next round in <b id="int-secs">15</b>s</div>
+</div>
+
+<!-- MAP CHANGE BANNER -->
+<div id="map-banner">
+  <div id="map-banner-inner">
+    <div id="map-banner-emoji">⚔️</div>
+    <div id="map-banner-name">Arena</div>
+    <div id="map-banner-desc"></div>
+    <div id="map-banner-round">ROUND 1</div>
+  </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -209,132 +229,119 @@ canvas{display:block;position:fixed;inset:0}
 'use strict';
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
-const canvas = document.getElementById('c');
-const ctx    = canvas.getContext('2d');
-const mmC    = document.getElementById('mm');
-const mmX    = mmC.getContext('2d');
-let VW = 0, VH = 0;
-function resize(){ VW = canvas.width = window.innerWidth; VH = canvas.height = window.innerHeight; }
-resize();
-window.addEventListener('resize', resize);
+const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+const mmC=document.getElementById('mm'), mmX=mmC.getContext('2d');
+let VW=0,VH=0;
+function resize(){VW=canvas.width=window.innerWidth;VH=canvas.height=window.innerHeight;}
+resize(); window.addEventListener('resize',resize);
 
-const socket = io({ transports: ['websocket'] });
+const socket=io({transports:['websocket']});
 
-// ── Constants — must match server.js ─────────────────────────────────────────
-const SV_SPEED = 4.0;
-const SV_R     = 15;
+// ── Constants — must match server ─────────────────────────────────────────────
+const SV_SPEED=4.0, SV_R=15;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let myId=null, worldW=2400, worldH=2400, obstacles=[], playerR=SV_R;
-let gameState=null, inGame=false;
-let camX=1200, camY=1200;
-let mouseX=0, mouseY=0;
-let shootDown=false, shootCooldown=0;
-let ping=0, fps=0, fCount=0, fTimer=0, fLast=0;
-let prevScore=-1, prevHp=-1, prevKills=-1;
-let deadTimer=null;
+let myId=null,worldW=2400,worldH=2400,obstacles=[],playerR=SV_R;
+let gameState=null,inGame=false;
+let camX=1200,camY=1200,mouseX=0,mouseY=0;
+let shootDown=false,shootCooldown=0;
+let ping=0,fps=0,fCount=0,fTimer=0,fLast=0;
+let prevScore=-1,prevHp=-1,prevKills=-1;
+let deadTimer=null,chatOpen=false;
+let currentMapId='arena',currentMapName='Arena',currentMapEmoji='⚔️';
+let roundState='playing',roundNumber=1;
+let serverTimeLeft=0; // ms remaining from server
+let myVote=null;
 
-// ── Client-side prediction ────────────────────────────────────────────────────
-const local = { x:1200, y:1200, angle:0, alive:true, hp:100, score:0, kills:0, color:'#e74c3c', name:'' };
+// ── Client prediction ─────────────────────────────────────────────────────────
+const local={x:1200,y:1200,angle:0,alive:true,hp:100,score:0,kills:0,color:'#e74c3c',name:''};
 
-function clamp(v,lo,hi){ return v<lo?lo:v>hi?hi:v; }
-
+function clamp(v,lo,hi){return v<lo?lo:v>hi?hi:v;}
 function overlapsObs(x,y){
   const r=playerR;
   for(const o of obstacles){
-    const nx=clamp(x,o.x,o.x+o.w), ny=clamp(y,o.y,o.y+o.h);
-    const dx=x-nx, dy=y-ny;
+    const nx=clamp(x,o.x,o.x+o.w),ny=clamp(y,o.y,o.y+o.h);
+    const dx=x-nx,dy=y-ny;
     if(dx*dx+dy*dy<r*r) return true;
   }
   return x<r||x>worldW-r||y<r||y>worldH-r;
 }
-
 function predictMove(dt){
-  if(!local.alive) return;
-  local.angle = Math.atan2(mouseY-VH/2, mouseX-VW/2); // instant aim
+  if(!local.alive||roundState!=='playing') return;
+  local.angle=Math.atan2(mouseY-VH/2,mouseX-VW/2);
   let dx=0,dy=0;
-  if(keys['KeyW']||keys['ArrowUp'])    dy-=1;
-  if(keys['KeyS']||keys['ArrowDown'])  dy+=1;
-  if(keys['KeyA']||keys['ArrowLeft'])  dx-=1;
-  if(keys['KeyD']||keys['ArrowRight']) dx+=1;
+  if(keys['KeyW']||keys['ArrowUp'])   dy-=1;
+  if(keys['KeyS']||keys['ArrowDown']) dy+=1;
+  if(keys['KeyA']||keys['ArrowLeft']) dx-=1;
+  if(keys['KeyD']||keys['ArrowRight'])dx+=1;
   if(!dx&&!dy) return;
-  const len=Math.sqrt(dx*dx+dy*dy);
-  const spd=SV_SPEED*(dt/16.67);
+  const len=Math.sqrt(dx*dx+dy*dy),spd=SV_SPEED*(dt/16.67);
   dx=dx/len*spd; dy=dy/len*spd;
   const nx=clamp(local.x+dx,playerR,worldW-playerR);
   const ny=clamp(local.y+dy,playerR,worldH-playerR);
   if(!overlapsObs(nx,local.y)) local.x=nx;
   if(!overlapsObs(local.x,ny)) local.y=ny;
 }
-
 function reconcile(srv){
   if(!srv) return;
-  const dx=srv.x-local.x, dy=srv.y-local.y;
-  const d=Math.sqrt(dx*dx+dy*dy);
-  if(d>80){ local.x=srv.x; local.y=srv.y; }
-  else { local.x+=dx*0.12; local.y+=dy*0.12; }
-  local.hp=srv.hp; local.score=srv.score; local.kills=srv.kills;
-  local.alive=srv.alive; local.color=srv.color; local.name=srv.name;
+  const dx=srv.x-local.x,dy=srv.y-local.y,d=Math.sqrt(dx*dx+dy*dy);
+  if(d>80){local.x=srv.x;local.y=srv.y;}
+  else{local.x+=dx*.12;local.y+=dy*.12;}
+  local.hp=srv.hp;local.score=srv.score;local.kills=srv.kills;
+  local.alive=srv.alive;local.color=srv.color;local.name=srv.name;
 }
 
 // ── Pre-baked assets ──────────────────────────────────────────────────────────
 const GRID_TILE=80;
-const gridCv=document.createElement('canvas'); gridCv.width=gridCv.height=GRID_TILE;
+const gridCv=document.createElement('canvas');gridCv.width=gridCv.height=GRID_TILE;
 const gc=gridCv.getContext('2d');
-gc.fillStyle='#1a1a2e'; gc.fillRect(0,0,GRID_TILE,GRID_TILE);
-gc.strokeStyle='rgba(255,255,255,0.04)'; gc.lineWidth=1;
-gc.beginPath(); gc.moveTo(GRID_TILE,0); gc.lineTo(GRID_TILE,GRID_TILE); gc.stroke();
-gc.beginPath(); gc.moveTo(0,GRID_TILE); gc.lineTo(GRID_TILE,GRID_TILE); gc.stroke();
-const gridPat=ctx.createPattern(gridCv,'repeat');
+gc.fillStyle='#1a1a2e';gc.fillRect(0,0,GRID_TILE,GRID_TILE);
+gc.strokeStyle='rgba(255,255,255,0.04)';gc.lineWidth=1;
+gc.beginPath();gc.moveTo(GRID_TILE,0);gc.lineTo(GRID_TILE,GRID_TILE);gc.stroke();
+gc.beginPath();gc.moveTo(0,GRID_TILE);gc.lineTo(GRID_TILE,GRID_TILE);gc.stroke();
+let gridPat=null; // built after first resize
 
 let obsCv=null;
 function buildObsCv(){
-  obsCv=document.createElement('canvas'); obsCv.width=worldW; obsCv.height=worldH;
+  obsCv=document.createElement('canvas');obsCv.width=worldW;obsCv.height=worldH;
   const oc=obsCv.getContext('2d');
   for(const o of obstacles){
-    oc.fillStyle='rgba(0,0,0,0.35)'; oc.fillRect(o.x+5,o.y+5,o.w,o.h);
-    oc.fillStyle='#2c3e6a';          oc.fillRect(o.x,o.y,o.w,o.h);
+    oc.fillStyle='rgba(0,0,0,0.35)';oc.fillRect(o.x+5,o.y+5,o.w,o.h);
+    oc.fillStyle='#2c3e6a';oc.fillRect(o.x,o.y,o.w,o.h);
     oc.fillStyle='rgba(255,255,255,0.07)';
-    oc.fillRect(o.x,o.y,o.w,3); oc.fillRect(o.x,o.y,3,o.h);
-    oc.strokeStyle='rgba(100,130,220,0.25)'; oc.lineWidth=1;
+    oc.fillRect(o.x,o.y,o.w,3);oc.fillRect(o.x,o.y,3,o.h);
+    oc.strokeStyle='rgba(100,130,220,0.25)';oc.lineWidth=1;
     oc.strokeRect(o.x+.5,o.y+.5,o.w-1,o.h-1);
   }
 }
 
 const gradCache={};
 function getGrad(color,r){
-  const key=color+r; if(gradCache[key]) return gradCache[key];
-  const size=(r+4)*2, pc=document.createElement('canvas');
-  pc.width=pc.height=size; const px=pc.getContext('2d');
-  const cx=size/2,cy=size/2;
-  const light=h=>{
-    try{ return `rgb(${Math.min(255,parseInt(h.slice(1,3),16)+55)},${Math.min(255,parseInt(h.slice(3,5),16)+55)},${Math.min(255,parseInt(h.slice(5,7),16)+55)})`; }
-    catch{ return h; }
-  };
+  const key=color+r;if(gradCache[key])return gradCache[key];
+  const size=(r+4)*2,pc=document.createElement('canvas');pc.width=pc.height=size;
+  const px=pc.getContext('2d'),cx=size/2,cy=size/2;
+  const light=h=>{try{return `rgb(${Math.min(255,parseInt(h.slice(1,3),16)+55)},${Math.min(255,parseInt(h.slice(3,5),16)+55)},${Math.min(255,parseInt(h.slice(5,7),16)+55)})`;}catch{return h;}};
   const g=px.createRadialGradient(cx-r*.3,cy-r*.3,0,cx,cy,r);
-  g.addColorStop(0,light(color)); g.addColorStop(1,color);
-  px.fillStyle=g; px.beginPath(); px.arc(cx,cy,r,0,Math.PI*2); px.fill();
-  gradCache[key]=pc; return pc;
+  g.addColorStop(0,light(color));g.addColorStop(1,color);
+  px.fillStyle=g;px.beginPath();px.arc(cx,cy,r,0,Math.PI*2);px.fill();
+  gradCache[key]=pc;return pc;
 }
-
 const bulletCache={};
 function getBullet(color){
-  if(bulletCache[color]) return bulletCache[color];
-  const bc=document.createElement('canvas'); bc.width=bc.height=18;
+  if(bulletCache[color])return bulletCache[color];
+  const bc=document.createElement('canvas');bc.width=bc.height=18;
   const bx=bc.getContext('2d');
-  bx.fillStyle=color+'44'; bx.beginPath(); bx.arc(9,9,8,0,Math.PI*2); bx.fill();
-  bx.fillStyle=color;       bx.beginPath(); bx.arc(9,9,5,0,Math.PI*2); bx.fill();
-  bx.fillStyle='#fff';      bx.beginPath(); bx.arc(7,7,2,0,Math.PI*2); bx.fill();
-  bulletCache[color]=bc; return bc;
+  bx.fillStyle=color+'44';bx.beginPath();bx.arc(9,9,8,0,Math.PI*2);bx.fill();
+  bx.fillStyle=color;bx.beginPath();bx.arc(9,9,5,0,Math.PI*2);bx.fill();
+  bx.fillStyle='#fff';bx.beginPath();bx.arc(7,7,2,0,Math.PI*2);bx.fill();
+  bulletCache[color]=bc;return bc;
 }
 
-// minimap obstacle buffer — draw once
 let mmObsCv=null;
 function buildMmObs(){
-  if(mmObsCv) return;
-  mmObsCv=document.createElement('canvas'); mmObsCv.width=mmObsCv.height=150;
+  mmObsCv=document.createElement('canvas');mmObsCv.width=mmObsCv.height=150;
   const mc=mmObsCv.getContext('2d');
-  mc.fillStyle='#0f0f20'; mc.fillRect(0,0,150,150);
+  mc.fillStyle='#0f0f20';mc.fillRect(0,0,150,150);
   const sx=150/worldW,sy=150/worldH;
   mc.fillStyle='#2c3e6a';
   for(const o of obstacles) mc.fillRect(o.x*sx,o.y*sy,o.w*sx,o.h*sy);
@@ -342,13 +349,13 @@ function buildMmObs(){
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 const keys={};
-document.addEventListener('keydown',e=>{ keys[e.code]=true; e.code==='Space'&&e.preventDefault(); });
-document.addEventListener('keyup',  e=>{ keys[e.code]=false; });
-canvas.addEventListener('mousemove',e=>{ mouseX=e.clientX; mouseY=e.clientY; });
-canvas.addEventListener('mousedown',e=>{ if(e.button===0) shootDown=true; });
-canvas.addEventListener('mouseup',  e=>{ if(e.button===0) shootDown=false; });
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')e.preventDefault();},false);
+document.addEventListener('keyup',e=>{keys[e.code]=false;},false);
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY;});
+canvas.addEventListener('mousedown',e=>{if(e.button===0)shootDown=true;});
+canvas.addEventListener('mouseup',e=>{if(e.button===0)shootDown=false;});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-document.getElementById('name-input').addEventListener('keydown',e=>{ if(e.key==='Enter') joinGame(); });
+document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')joinGame();});
 document.getElementById('play-btn').addEventListener('click',joinGame);
 
 function joinGame(){
@@ -362,308 +369,393 @@ function joinGame(){
 
 // ── HUD helpers ───────────────────────────────────────────────────────────────
 function setHp(hp){
-  if(hp===prevHp) return; prevHp=hp;
-  const p=Math.max(0,hp);
-  const col=p>60?'#2ecc71':p>30?'#f39c12':'#e74c3c';
+  if(hp===prevHp)return;prevHp=hp;
+  const p=Math.max(0,hp),col=p>60?'#2ecc71':p>30?'#f39c12':'#e74c3c';
   document.getElementById('hp-bar').style.width=p+'%';
   document.getElementById('hp-bar').style.background=col;
   document.getElementById('hp-text').textContent=Math.round(p)+' HP';
 }
-function setScore(s){ if(s===prevScore)return; prevScore=s; document.getElementById('score-val').textContent=s; }
-function setKills(k){ if(k===prevKills)return; prevKills=k; document.getElementById('kills-val').textContent=k+' kill'+(k!==1?'s':''); }
-
-function flashRed(){
-  const f=document.getElementById('flash');
-  f.style.background='rgba(231,76,60,0.35)';
-  setTimeout(()=>f.style.background='transparent',110);
-}
-
-function addKill(html){
-  const el=document.createElement('div'); el.className='kf-row'; el.innerHTML=html;
-  document.getElementById('kf').appendChild(el);
-  setTimeout(()=>el.remove(),3600);
-}
-
+function setScore(s){if(s===prevScore)return;prevScore=s;document.getElementById('score-val').textContent=s;}
+function setKills(k){if(k===prevKills)return;prevKills=k;document.getElementById('kills-val').textContent=k+' kill'+(k!==1?'s':'');}
+function flashRed(){const f=document.getElementById('flash');f.style.background='rgba(231,76,60,0.35)';setTimeout(()=>f.style.background='transparent',110);}
+function addKill(html){const el=document.createElement('div');el.className='kf-row';el.innerHTML=html;document.getElementById('kf').appendChild(el);setTimeout(()=>el.remove(),3600);}
 function updateLB(data){
-  const rows=document.getElementById('lb-rows'); rows.innerHTML='';
+  const rows=document.getElementById('lb-rows');rows.innerHTML='';
   data.forEach((p,i)=>{
-    const el=document.createElement('div');
-    el.className='lb-row'+(p.id===myId?' me':'');
+    const el=document.createElement('div');el.className='lb-row'+(p.id===myId?' me':'');
     el.innerHTML=`<span class="lb-rank">${i+1}</span><span class="lb-dot" style="background:${p.color}"></span><span class="lb-name">${p.name}</span><span class="lb-pts">${p.score}</span>`;
     rows.appendChild(el);
   });
 }
-
 function showDead(ms){
-  const el=document.getElementById('dead'); el.style.display='block';
+  const el=document.getElementById('dead');el.style.display='block';
   let t=Math.ceil(ms/1000);
   document.getElementById('dead-txt').textContent=`Respawning in ${t}s`;
   clearInterval(deadTimer);
-  deadTimer=setInterval(()=>{
-    t--; if(t<=0){clearInterval(deadTimer);el.style.display='none';}
-    else document.getElementById('dead-txt').textContent=`Respawning in ${t}s`;
-  },1000);
+  deadTimer=setInterval(()=>{t--;if(t<=0){clearInterval(deadTimer);el.style.display='none';}else document.getElementById('dead-txt').textContent=`Respawning in ${t}s`;},1000);
 }
-
-// ── Perf bar — colour-coded ping ──────────────────────────────────────────────
 function updatePerf(){
   document.getElementById('pb-fps-val').textContent=fps+' FPS';
-  const pingCol=ping<60?'#2ecc71':ping<120?'#f39c12':'#e74c3c';
+  const pc=ping<60?'#2ecc71':ping<120?'#f39c12':'#e74c3c';
   document.getElementById('pb-ping-val').textContent=ping+'ms';
-  document.getElementById('pb-ping-val').style.color=pingCol;
-  document.getElementById('pb-ping-dot').style.background=pingCol;
+  document.getElementById('pb-ping-val').style.color=pc;
+  document.getElementById('pb-ping-dot').style.background=pc;
+}
+
+// ── Round timer display ───────────────────────────────────────────────────────
+let clientTimeLeft=0, lastTimerSync=0;
+function updateTimerDisplay(){
+  // Estimate locally between server syncs
+  const elapsed=Date.now()-lastTimerSync;
+  const est=Math.max(0,clientTimeLeft-elapsed);
+  const secs=Math.ceil(est/1000);
+  const m=Math.floor(secs/60),s=secs%60;
+  const str=m+':'+(s<10?'0':'')+s;
+  const el=document.getElementById('round-timer');
+  el.textContent=str;
+  el.className=secs<=30?'urgent':'';
+}
+
+// ── Intermission UI ───────────────────────────────────────────────────────────
+let intTimer=null;
+function showIntermission({roundWinner,voteOptions,endsAt,roundNumber:rn}){
+  document.getElementById('intermission').style.display='flex';
+  document.getElementById('hud').style.display='none';
+  myVote=null;
+
+  // Winner display
+  if(roundWinner){
+    document.getElementById('int-winner').textContent=roundWinner.name+' wins!';
+    document.getElementById('int-winner').style.color=roundWinner.color;
+    document.getElementById('int-winner-sub').textContent=
+      `${roundWinner.kills} kills · ${roundWinner.score} points`;
+  } else {
+    document.getElementById('int-winner').textContent='Round over!';
+    document.getElementById('int-winner').style.color='#fff';
+    document.getElementById('int-winner-sub').textContent='No kills this round';
+  }
+
+  // Map vote cards
+  const mapsDiv=document.getElementById('int-maps');
+  mapsDiv.innerHTML='';
+  for(const m of voteOptions){
+    const card=document.createElement('div');
+    card.className='map-card';
+    card.style.color=m.color||'#fff';
+    card.dataset.mapId=m.id;
+    card.innerHTML=`
+      <div class="map-emoji">${m.emoji}</div>
+      <div class="map-name">${m.name}</div>
+      <div class="map-desc">${m.desc}</div>
+      <div class="map-votes">0</div>
+    `;
+    card.addEventListener('click',()=>castVote(m.id,voteOptions));
+    mapsDiv.appendChild(card);
+  }
+
+  // Countdown
+  clearInterval(intTimer);
+  function tick(){
+    const left=Math.max(0,endsAt-Date.now());
+    document.getElementById('int-secs').textContent=Math.ceil(left/1000);
+    if(left<=0) clearInterval(intTimer);
+  }
+  tick(); intTimer=setInterval(tick,500);
+}
+
+function castVote(mapId,voteOptions){
+  myVote=mapId;
+  socket.emit('vote',{mapId});
+  // Highlight chosen card
+  document.querySelectorAll('.map-card').forEach(c=>{
+    c.classList.toggle('voted',c.dataset.mapId===mapId);
+    c.style.borderColor=c.dataset.mapId===mapId?(voteOptions.find(m=>m.id===mapId)||{}).color||'#fff':'rgba(255,255,255,0.08)';
+  });
+}
+
+function updateVoteCounts(counts){
+  document.querySelectorAll('.map-card').forEach(c=>{
+    const n=counts[c.dataset.mapId]||0;
+    c.querySelector('.map-votes').textContent=n+' vote'+(n!==1?'s':'');
+  });
+}
+
+function hideIntermission(){
+  document.getElementById('intermission').style.display='none';
+  document.getElementById('hud').style.display='block';
+  clearInterval(intTimer);
+}
+
+function showMapBanner(name,emoji,desc,rn,color){
+  const b=document.getElementById('map-banner');
+  document.getElementById('map-banner-emoji').textContent=emoji;
+  document.getElementById('map-banner-name').textContent=name;
+  document.getElementById('map-banner-name').style.color=color||'#fff';
+  document.getElementById('map-banner-desc').textContent=desc;
+  document.getElementById('map-banner-round').textContent='ROUND '+rn;
+  b.style.display='flex';
+  setTimeout(()=>b.style.display='none',3000);
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
 function drawMinimap(){
-  buildMmObs();
+  if(!mmObsCv) return;
   const MW=150,MH=150,sx=MW/worldW,sy=MH/worldH;
   mmX.drawImage(mmObsCv,0,0);
   if(gameState){
     for(const p of gameState.players){
       if(!p.alive||p.id===myId) continue;
-      mmX.fillStyle=p.color;
-      mmX.beginPath(); mmX.arc(p.x*sx,p.y*sy,2.5,0,Math.PI*2); mmX.fill();
+      mmX.fillStyle=p.color;mmX.beginPath();mmX.arc(p.x*sx,p.y*sy,2.5,0,Math.PI*2);mmX.fill();
     }
   }
-  // local player dot — instant position
-  mmX.fillStyle='#fff';
-  mmX.beginPath(); mmX.arc(local.x*sx,local.y*sy,4,0,Math.PI*2); mmX.fill();
-  // viewport rect
-  mmX.strokeStyle='rgba(255,255,255,0.3)'; mmX.lineWidth=1;
+  mmX.fillStyle='#fff';mmX.beginPath();mmX.arc(local.x*sx,local.y*sy,4,0,Math.PI*2);mmX.fill();
+  mmX.strokeStyle='rgba(255,255,255,0.3)';mmX.lineWidth=1;
   mmX.strokeRect((camX-VW/2)*sx,(camY-VH/2)*sy,VW*sx,VH*sy);
-  mmX.strokeStyle='rgba(255,255,255,0.1)'; mmX.strokeRect(0,0,MW,MH);
+  mmX.strokeStyle='rgba(255,255,255,0.1)';mmX.strokeRect(0,0,MW,MH);
 }
 
 // ── World→screen ──────────────────────────────────────────────────────────────
-function ws(wx,wy){ return [wx-camX+VW/2, wy-camY+VH/2]; }
+function ws(wx,wy){return[wx-camX+VW/2,wy-camY+VH/2];}
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawGrid(){
-  const ox=(VW/2-camX)%GRID_TILE, oy=(VH/2-camY)%GRID_TILE;
-  ctx.save(); ctx.translate(ox,oy);
-  ctx.fillStyle=gridPat; ctx.fillRect(-ox,-oy,VW+GRID_TILE,VH+GRID_TILE);
-  ctx.restore();
+  if(!gridPat) gridPat=ctx.createPattern(gridCv,'repeat');
+  const ox=(VW/2-camX)%GRID_TILE,oy=(VH/2-camY)%GRID_TILE;
+  ctx.save();ctx.translate(ox,oy);ctx.fillStyle=gridPat;ctx.fillRect(-ox,-oy,VW+GRID_TILE,VH+GRID_TILE);ctx.restore();
 }
-
 function drawBorder(){
   const [bx,by]=ws(0,0);
-  ctx.strokeStyle='rgba(231,76,60,0.45)'; ctx.lineWidth=4; ctx.strokeRect(bx,by,worldW,worldH);
-  ctx.strokeStyle='rgba(231,76,60,0.1)'; ctx.lineWidth=22; ctx.strokeRect(bx,by,worldW,worldH);
+  ctx.strokeStyle='rgba(231,76,60,0.45)';ctx.lineWidth=4;ctx.strokeRect(bx,by,worldW,worldH);
+  ctx.strokeStyle='rgba(231,76,60,0.1)';ctx.lineWidth=22;ctx.strokeRect(bx,by,worldW,worldH);
+}
+function drawObstacles(){if(obsCv){const [bx,by]=ws(0,0);ctx.drawImage(obsCv,bx,by);}}
+
+const playerChatBubbles={};
+function drawChatBubble(sx,sy,r,id){
+  const bubble=playerChatBubbles[id];if(!bubble)return;
+  if(Date.now()>bubble.expires){delete playerChatBubbles[id];return;}
+  const age=(Date.now()-(bubble.expires-4000))/4000;
+  const alpha=age>.7?1-(age-.7)/.3:1;
+  const yOff=sy-r-28;
+  ctx.save();ctx.globalAlpha=alpha;
+  ctx.font='12px "Segoe UI",Arial,sans-serif';ctx.textAlign='center';
+  const tw=ctx.measureText(bubble.msg).width,bpad=6,bh=20,bw=tw+bpad*2;
+  ctx.fillStyle='rgba(0,0,0,0.72)';
+  ctx.beginPath();ctx.roundRect(sx-bw/2,yOff-bh/2,bw,bh,5);ctx.fill();
+  ctx.beginPath();ctx.moveTo(sx-5,yOff+bh/2);ctx.lineTo(sx+5,yOff+bh/2);ctx.lineTo(sx,yOff+bh/2+6);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillText(bubble.msg,sx,yOff+4);
+  ctx.globalAlpha=1;ctx.restore();
 }
 
-function drawObstacles(){
-  if(!obsCv) return;
-  const [bx,by]=ws(0,0); ctx.drawImage(obsCv,bx,by);
-}
-
-function drawPlayer(p, useLocal){
-  const px=useLocal?local.x:p.x, py=useLocal?local.y:p.y;
-  const pangle=useLocal?local.angle:p.angle;
-  const palive=useLocal?local.alive:p.alive;
-  const pcolor=p.color||local.color;
-  const pname=p.name||local.name;
-  const php=useLocal?local.hp:p.hp;
-  const r=playerR;
-
-  const [sx,sy]=ws(px,py);
-  if(sx<-r-80||sx>VW+r+80||sy<-r-80||sy>VH+r+80) return;
+function drawPlayer(p,useLocal){
+  const px=useLocal?local.x:p.x,py=useLocal?local.y:p.y;
+  const pangle=useLocal?local.angle:p.angle,palive=useLocal?local.alive:p.alive;
+  const pcolor=p.color||local.color,pname=p.name||local.name,php=useLocal?local.hp:p.hp;
+  const r=playerR,[sx,sy]=ws(px,py);
+  if(sx<-r-80||sx>VW+r+80||sy<-r-80||sy>VH+r+80)return;
 
   if(!palive){
-    ctx.save(); ctx.globalAlpha=0.2;
-    ctx.fillStyle=pcolor; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
-    ctx.globalAlpha=1; ctx.restore();
-    return;
+    ctx.save();ctx.globalAlpha=.2;ctx.fillStyle=pcolor;ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;ctx.restore();return;
   }
-
-  ctx.save();
-  ctx.translate(sx,sy);
-
-  // glow for local player
+  ctx.save();ctx.translate(sx,sy);
   if(useLocal){
-    ctx.fillStyle=pcolor+'28'; ctx.beginPath(); ctx.arc(0,0,r+8,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=pcolor+'14'; ctx.beginPath(); ctx.arc(0,0,r+16,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=pcolor+'28';ctx.beginPath();ctx.arc(0,0,r+8,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=pcolor+'14';ctx.beginPath();ctx.arc(0,0,r+16,0,Math.PI*2);ctx.fill();
   }
-
-  // body
-  const gd=getGrad(pcolor,r);
-  ctx.drawImage(gd,-gd.width/2,-gd.height/2);
-
-  // gun barrel
+  const gd=getGrad(pcolor,r);ctx.drawImage(gd,-gd.width/2,-gd.height/2);
   ctx.rotate(pangle);
-  ctx.fillStyle='#0f0f20';  ctx.fillRect(r*.35,-5.5,r+8,11);
-  ctx.fillStyle=pcolor;      ctx.fillRect(r*.35,-4,r+6,8);
-  // muzzle cap
-  ctx.fillStyle='#0f0f20';  ctx.fillRect(r+6,-3,5,6);
-
+  ctx.fillStyle='#0f0f20';ctx.fillRect(r*.35,-5.5,r+8,11);
+  ctx.fillStyle=pcolor;ctx.fillRect(r*.35,-4,r+6,8);
+  ctx.fillStyle='#0f0f20';ctx.fillRect(r+6,-3,5,6);
   ctx.restore();
 
-  // name tag
-  ctx.save();
-  ctx.font='bold 13px "Segoe UI",Arial,sans-serif';
-  ctx.textAlign='center';
-  // shadow
-  ctx.fillStyle='rgba(0,0,0,0.7)';
-  ctx.fillText(pname,sx+1,sy-r-9);
-  ctx.fillStyle=useLocal?'#fff':'rgba(255,255,255,0.92)';
-  ctx.fillText(pname,sx,sy-r-10);
+  ctx.save();ctx.font='bold 13px "Segoe UI",Arial,sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillText(pname,sx+1,sy-r-9);
+  ctx.fillStyle=useLocal?'#fff':'rgba(255,255,255,0.92)';ctx.fillText(pname,sx,sy-r-10);
   ctx.restore();
 
-  // hp bar — only when damaged
+  const bubbleId=useLocal?myId:p.id;
+  if(bubbleId) drawChatBubble(sx,sy,r,bubbleId);
+
   if(php<100){
     const bw=r*3,bh=5,bx2=sx-bw/2,by2=sy+r+7;
-    ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(bx2-1,by2-1,bw+2,bh+2);
-    ctx.fillStyle=php>60?'#2ecc71':php>30?'#f39c12':'#e74c3c';
-    ctx.fillRect(bx2,by2,bw*(php/100),bh);
+    ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fillRect(bx2-1,by2-1,bw+2,bh+2);
+    ctx.fillStyle=php>60?'#2ecc71':php>30?'#f39c12':'#e74c3c';ctx.fillRect(bx2,by2,bw*(php/100),bh);
   }
 }
-
 function drawBullet(b){
-  const [sx,sy]=ws(b.x,b.y);
-  if(sx<-20||sx>VW+20||sy<-20||sy>VH+20) return;
+  const [sx,sy]=ws(b.x,b.y);if(sx<-20||sx>VW+20||sy<-20||sy>VH+20)return;
   ctx.drawImage(getBullet(b.c||'#ffffff'),sx-9,sy-9);
 }
 
-// ── Input send ────────────────────────────────────────────────────────────────
-let lastKeyStr='', lastSentAngle=0, inputTick=0;
+// ── Input sending ─────────────────────────────────────────────────────────────
+let lastKeyStr='',lastSentAngle=0,inputTick=0;
 function sendInput(){
-  inputTick++;
-  if(inputTick%2!==0) return; // 30/s
-  const k={
-    up:   !!(keys['KeyW']||keys['ArrowUp']),
-    down: !!(keys['KeyS']||keys['ArrowDown']),
-    left: !!(keys['KeyA']||keys['ArrowLeft']),
-    right:!!(keys['KeyD']||keys['ArrowRight']),
-  };
+  inputTick++;if(inputTick%2!==0)return;
+  if(roundState!=='playing')return;
+  const k={up:!!(keys['KeyW']||keys['ArrowUp']),down:!!(keys['KeyS']||keys['ArrowDown']),left:!!(keys['KeyA']||keys['ArrowLeft']),right:!!(keys['KeyD']||keys['ArrowRight'])};
   const kStr=`${+k.up}${+k.down}${+k.left}${+k.right}`;
-  const angleSame=Math.abs(local.angle-lastSentAngle)<0.02;
-  if(kStr===lastKeyStr&&angleSame) return;
-  lastKeyStr=kStr; lastSentAngle=local.angle;
+  const angleSame=Math.abs(local.angle-lastSentAngle)<.02;
+  if(kStr===lastKeyStr&&angleSame)return;
+  lastKeyStr=kStr;lastSentAngle=local.angle;
   socket.emit('input',{keys:k,angle:local.angle});
 }
-
 function handleShoot(){
-  if(shootDown&&shootCooldown<=0&&local.alive){
-    socket.emit('shoot',{angle:local.angle});
-    shootCooldown=10;
+  if(shootDown&&shootCooldown<=0&&local.alive&&roundState==='playing'){
+    socket.emit('shoot',{angle:local.angle});shootCooldown=10;
   }
-  if(shootCooldown>0) shootCooldown--;
+  if(shootCooldown>0)shootCooldown--;
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+function openChat(){if(!inGame)return;chatOpen=true;document.getElementById('chat-input-wrap').style.display='block';document.getElementById('chat-open-hint').style.display='none';document.getElementById('chat-input').focus();}
+function closeChat(){chatOpen=false;document.getElementById('chat-input-wrap').style.display='none';document.getElementById('chat-open-hint').style.display='block';document.getElementById('chat-input').value='';canvas.focus();}
+function sendChat(){const inp=document.getElementById('chat-input'),msg=inp.value.trim();if(msg)socket.emit('chat',{msg});closeChat();}
+document.addEventListener('keydown',e=>{
+  if(!inGame||document.getElementById('intermission').style.display!=='none')return;
+  if(e.key==='Enter'){e.preventDefault();chatOpen?sendChat():openChat();}
+  if(e.key==='Escape'&&chatOpen){e.preventDefault();closeChat();}
+},true);
+document.getElementById('chat-input').addEventListener('keydown',e=>e.stopPropagation());
+function addChatMsg(name,color,msg){
+  const log=document.getElementById('chat-log');
+  const el=document.createElement('div');el.className='chat-msg';
+  el.innerHTML=`<span class="cn" style="color:${color}">${name}</span> <span class="cm">${msg}</span>`;
+  log.appendChild(el);
+  while(log.children.length>8)log.removeChild(log.firstChild);
+  setTimeout(()=>{if(el.parentNode)el.remove();},8100);
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
 function loop(ts){
   requestAnimationFrame(loop);
-  const dt=ts-(fLast||ts); fLast=ts;
+  const dt=ts-(fLast||ts);fLast=ts;
+  fCount++;fTimer+=dt;
+  if(fTimer>=600){fps=Math.round(fCount/(fTimer/1000));fCount=0;fTimer=0;updatePerf();}
 
-  // FPS counter
-  fCount++; fTimer+=dt;
-  if(fTimer>=600){
-    fps=Math.round(fCount/(fTimer/1000)); fCount=0; fTimer=0;
-    updatePerf();
-  }
-
-  if(inGame&&myId){
+  if(inGame&&myId&&roundState==='playing'){
     predictMove(dt);
     reconcile(gameState?.players?.find(p=>p.id===myId));
-    sendInput();
-    handleShoot();
-    // camera follows local pos — instant feel
-    camX+=(local.x-camX)*0.13;
-    camY+=(local.y-camY)*0.13;
+    sendInput();handleShoot();
+    camX+=(local.x-camX)*.13;camY+=(local.y-camY)*.13;
   }
 
-  // Render
-  ctx.fillStyle='#1a1a2e'; ctx.fillRect(0,0,VW,VH);
-  drawGrid();
-  drawBorder();
-  drawObstacles();
+  // Timer display — interpolate between server syncs
+  if(roundState==='playing') updateTimerDisplay();
+
+  ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,VW,VH);
+  drawGrid();drawBorder();drawObstacles();
 
   if(gameState){
-    for(const b of gameState.bullets) drawBullet(b);
-    // other players
-    for(const p of gameState.players){
-      if(p.id===myId) continue;
-      drawPlayer(p,false);
-    }
+    for(const b of gameState.bullets)drawBullet(b);
+    for(const p of gameState.players){if(p.id===myId)continue;drawPlayer(p,false);}
   }
+  if(myId)drawPlayer({color:local.color,name:local.name,hp:local.hp},true);
 
-  // local player always on top
-  if(myId) drawPlayer({color:local.color,name:local.name,hp:local.hp},true);
-
-  setHp(local.hp); setScore(local.score); setKills(local.kills);
+  setHp(local.hp);setScore(local.score);setKills(local.kills);
   drawMinimap();
 }
 requestAnimationFrame(loop);
 
-// ── Socket ────────────────────────────────────────────────────────────────────
-socket.on('connect',()=>{
-  setInterval(()=>socket.emit('ping_check',Date.now()),1500);
+// ── Socket events ─────────────────────────────────────────────────────────────
+socket.on('connect',()=>setInterval(()=>socket.emit('ping_check',Date.now()),1500));
+socket.on('pong_check',ts=>{ping=Date.now()-ts;updatePerf();});
+
+socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderboard,
+  mapId,mapName,mapEmoji,mapColor,roundState:rs,roundEndsAt,roundNumber:rn,
+  voteOptions,intermissionEndsAt,roundWinner})=>{
+  myId=playerId;worldW=ww;worldH=wh;obstacles=obs;playerR=pr;
+  currentMapId=mapId;currentMapName=mapName;currentMapEmoji=mapEmoji;
+  roundState=rs;roundNumber=rn;
+  local.x=ww/2;local.y=wh/2;camX=ww/2;camY=wh/2;
+  buildObsCv();buildMmObs();
+  if(leaderboard)updateLB(leaderboard);
+
+  // Update round label
+  document.getElementById('round-label').textContent=`Round ${rn} · ${mapName} ${mapEmoji}`;
+
+  // Sync timer
+  if(rs==='playing'){
+    clientTimeLeft=Math.max(0,roundEndsAt-Date.now());
+    lastTimerSync=Date.now();
+  }
+
+  // If joining mid-intermission, show vote screen
+  if(rs==='intermission'&&voteOptions){
+    showIntermission({roundWinner,voteOptions,endsAt:intermissionEndsAt,roundNumber:rn});
+  }
 });
 
-socket.on('pong_check',ts=>{
-  ping=Date.now()-ts;
-  updatePerf(); // update immediately when ping arrives, don't wait for FPS timer
-});
-
-socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderboard})=>{
-  myId=playerId; worldW=ww; worldH=wh; obstacles=obs; playerR=pr;
-  local.x=ww/2; local.y=wh/2; camX=ww/2; camY=wh/2;
-  buildObsCv(); buildMmObs();
-  if(leaderboard) updateLB(leaderboard);
-});
-
-// FIX: single 'state' handler — was registered twice before causing the second to override first
 socket.on('state',state=>{
   gameState=state;
-  const me=state.players.find(p=>p.id===myId);
-  if(!me) return;
-  // sync non-positional fields
-  local.color=me.color; local.name=me.name;
-  // FIX: respawn snap — if server says alive but we think dead, hard snap position
-  if(me.alive&&!local.alive){
-    local.x=me.x; local.y=me.y;
-    local.alive=true; local.hp=me.hp;
+  // Sync timer from server state
+  if(state.timeLeft!==undefined){
+    clientTimeLeft=state.timeLeft;lastTimerSync=Date.now();
   }
+  // Sync round state
+  if(state.roundState) roundState=state.roundState;
+
+  const me=state.players.find(p=>p.id===myId);
+  if(!me)return;
+  local.color=me.color;local.name=me.name;
+  if(me.alive&&!local.alive){local.x=me.x;local.y=me.y;local.alive=true;local.hp=me.hp;}
+});
+
+socket.on('intermission',data=>{
+  roundState='intermission';
+  showIntermission(data);
+});
+
+socket.on('voteUpdate',counts=>updateVoteCounts(counts));
+
+socket.on('newRound',({mapId,mapName,mapEmoji,mapColor,obstacles:obs,roundNumber:rn,endsAt})=>{
+  // Update map
+  currentMapId=mapId;currentMapName=mapName;currentMapEmoji=mapEmoji;
+  obstacles=obs;roundNumber=rn;roundState='playing';
+  clientTimeLeft=Math.max(0,endsAt-Date.now());lastTimerSync=Date.now();
+
+  // Rebuild map graphics
+  buildObsCv();buildMmObs();
+
+  // Reset local prediction
+  local.kills=0;local.deaths=0;local.score=0;local.hp=100;local.alive=true;
+  prevScore=-1;prevHp=-1;prevKills=-1;
+
+  // Update UI
+  document.getElementById('round-label').textContent=`Round ${rn} · ${mapName} ${mapEmoji}`;
+
+  // Hide intermission, show game
+  hideIntermission();
+
+  // Show map banner
+  const MAP_DESCS={arena:'Classic symmetric arena',desert:'Open terrain, long range',castle:'Rooms and corridors',maze:'Tight paths, close quarters',industrial:'Cover-heavy, mid range'};
+  showMapBanner(mapName,mapEmoji,MAP_DESCS[mapId]||'',rn,mapColor);
+
+  // Dead screen might be showing — clear it
+  document.getElementById('dead').style.display='none';
+  clearInterval(deadTimer);
 });
 
 socket.on('playerCount',n=>{
   document.getElementById('menu-online').textContent=n+' player'+(n!==1?'s':'')+' online';
   document.getElementById('pb-online-val').textContent=n+' online';
 });
-
-socket.on('damaged',({hp})=>{ flashRed(); local.hp=hp; prevHp=-1; });
-
-socket.on('died',({victimId,respawnIn})=>{
-  if(victimId===myId){ local.alive=false; showDead(respawnIn); }
-});
-
+socket.on('damaged',({hp})=>{flashRed();local.hp=hp;prevHp=-1;});
+socket.on('died',({victimId,respawnIn})=>{if(victimId===myId){local.alive=false;showDead(respawnIn);}});
 socket.on('kill',({killerName,killerColor,victimName,victimColor})=>{
   const isMe=killerName===local.name;
-  addKill(
-    `<span style="color:${killerColor}">${killerName}</span>`+
-    `<span style="color:rgba(255,255,255,0.35)"> eliminated </span>`+
-    `<span style="color:${victimColor}">${victimName}</span>`+
-    (isMe?` <span style="color:#f39c12;font-size:11px">+100</span>`:'')
-  );
+  addKill(`<span style="color:${killerColor}">${killerName}</span><span style="color:rgba(255,255,255,0.35)"> eliminated </span><span style="color:${victimColor}">${victimName}</span>`+(isMe?` <span style="color:#f39c12">+100</span>`:''));
 });
-
 socket.on('leaderboard',updateLB);
-
-// FIX: playerLeft — remove from gameState cleanly
-socket.on('playerLeft',id=>{
-  if(gameState) gameState.players=gameState.players.filter(p=>p.id!==id);
-});
-
+socket.on('playerLeft',id=>{if(gameState)gameState.players=gameState.players.filter(p=>p.id!==id);});
+socket.on('chat',({id,name,color,msg})=>{addChatMsg(name,color,msg);playerChatBubbles[id]={msg,expires:Date.now()+4000};});
 socket.on('disconnect',()=>{
-  document.getElementById('menu').innerHTML=`
-    <div class="menu-logo" style="font-size:42px;background:linear-gradient(135deg,#e74c3c,#c0392b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Disconnected</div>
-    <div class="menu-sub">Lost connection to server</div>
-    <div class="menu-box"><button id="play-btn" onclick="location.reload()" style="width:100%;padding:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;cursor:pointer">Reconnect</button></div>
-  `;
+  document.getElementById('menu').innerHTML=`<div class="menu-logo" style="font-size:42px;background:linear-gradient(135deg,#e74c3c,#c0392b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Disconnected</div><div class="menu-sub">Lost connection</div><div class="menu-box"><button onclick="location.reload()" style="width:100%;padding:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;cursor:pointer">Reconnect</button></div>`;
   document.getElementById('menu').style.display='flex';
   document.getElementById('hud').style.display='none';
-  document.getElementById('perf-bar').style.display='flex';
+  document.getElementById('intermission').style.display='none';
 });
 </script>
 </body>
 </html>
+HTMLEOF

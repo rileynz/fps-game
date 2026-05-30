@@ -277,8 +277,6 @@ let currentMapId='arena',currentMapName='Arena',currentMapEmoji='⚔️';
 let roundState='playing',roundNumber=1;
 let clientTimeLeft=0,lastTimerSync=0;
 let myVote=null,intTimer=null;
-let prevState=null,nextState=null,interpT=0;
-const INTERP_PERIOD=1000/20;
 
 const local={x:1200,y:1200,angle:0,alive:true,hp:100,score:0,kills:0,color:'#e74c3c',name:''};
 
@@ -738,27 +736,9 @@ function loop(ts){
 
   ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,VW,VH);
   drawGrid();drawBorder();drawObstacles();
-  // Interpolate other players between 20/s server ticks so motion looks smooth
-  interpT=Math.min(1,interpT+(dt/INTERP_PERIOD));
-  const renderState=nextState||gameState;
-  if(renderState){
-    for(const b of renderState.bullets)drawBullet(b);
-    for(const p of renderState.players){
-      if(p.id===myId)continue;
-      // Blend from prev position to current
-      let rp=p;
-      if(prevState&&interpT<1){
-        const pp=prevState.players.find(q=>q.id===p.id);
-        if(pp){
-          rp={...p,
-            x:pp.x+(p.x-pp.x)*interpT,
-            y:pp.y+(p.y-pp.y)*interpT,
-            angle:pp.angle+(p.angle-pp.angle)*interpT,
-          };
-        }
-      }
-      drawPlayer(rp,false);
-    }
+  if(gameState){
+    for(const b of gameState.bullets)drawBullet(b);
+    for(const p of gameState.players){if(p.id===myId)continue;drawPlayer(p,false);}
   }
   if(myId)drawPlayer({color:local.color,name:local.name,hp:local.hp},true);
   setHp(local.hp);setScore(local.score);setKills(local.kills);
@@ -769,54 +749,23 @@ requestAnimationFrame(loop);
 // ── Socket ────────────────────────────────────────────────────────────────────
 socket.on('connect',()=>setInterval(()=>socket.emit('ping_check',Date.now()),1500));
 socket.on('pong_check',ts=>{ping=Date.now()-ts;updatePerf();});
-socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderboard,mapId,mapName,mapEmoji,mapColor,roundState:rs,roundEndsAt,roundNumber:rn,voteOptions,intermissionEndsAt,roundWinner,roster:initRoster})=>{
+socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderboard,mapId,mapName,mapEmoji,mapColor,roundState:rs,roundEndsAt,roundNumber:rn,voteOptions,intermissionEndsAt,roundWinner})=>{
   myId=playerId;worldW=ww;worldH=wh;obstacles=obs;playerR=pr;
   currentMapId=mapId;currentMapName=mapName;currentMapEmoji=mapEmoji;
   roundState=rs;roundNumber=rn;
   local.x=ww/2;local.y=wh/2;camX=ww/2;camY=wh/2;
   buildObsCv();buildMmObs();
-  // Populate roster from init payload
-  if(initRoster){ Object.assign(roster,initRoster); }
   if(leaderboard)updateLB(leaderboard);
   document.getElementById('round-label').textContent=`Round ${rn} · ${mapName} ${mapEmoji}`;
   if(rs==='playing'){clientTimeLeft=Math.max(0,roundEndsAt-Date.now());lastTimerSync=Date.now();}
   if(rs==='intermission'&&voteOptions)showIntermission({roundWinner,voteOptions,endsAt:intermissionEndsAt,roundNumber:rn});
 });
-// Roster: name+color stored separately, never in tick packets
-const roster={};
-socket.on('rosterAdd',({id,name,color})=>{ roster[id]={name,color}; });
-socket.on('rosterRemove',id=>{ delete roster[id]; });
-
-// Interpolation: store previous + current server state, blend between them
-let prevState=null, nextState=null, interpT=0;
-const INTERP_PERIOD=1000/20; // ms between server ticks
-
 socket.on('state',state=>{
-  // Enrich players with roster data (name/color not in tick packet for others)
-  for(const p of state.players){
-    const r=roster[p.id]||{};
-    if(!p.name) p.name=r.name||'';
-    if(!p.color) p.color=r.color||'#ffffff';
-    // self gets kills/score directly
-    if(p.id===myId){
-      if(p.kills!==undefined) local.kills=p.kills;
-      if(p.score!==undefined) local.score=p.score;
-    }
-  }
-  // timer uses seconds now (field renamed to t)
-  if(state.t!==undefined){ clientTimeLeft=state.t*1000; lastTimerSync=Date.now(); }
-  if(state.roundState) roundState=state.roundState;
-
-  // Shift interpolation window
-  prevState=nextState||state;
-  nextState=state;
-  interpT=0; // reset blend — new server snapshot arrived
-
-  const me=state.players.find(p=>p.id===myId);
-  if(!me)return;
-  const r=roster[myId]||{};
-  local.color=r.color||me.color||local.color;
-  local.name=r.name||me.name||local.name;
+  gameState=state;
+  if(state.timeLeft!==undefined){clientTimeLeft=state.timeLeft;lastTimerSync=Date.now();}
+  if(state.roundState)roundState=state.roundState;
+  const me=state.players.find(p=>p.id===myId);if(!me)return;
+  local.color=me.color;local.name=me.name;
   if(me.alive&&!local.alive){local.x=me.x;local.y=me.y;local.alive=true;local.hp=me.hp;}
 });
 socket.on('intermission',data=>{roundState='intermission';showIntermission(data);});

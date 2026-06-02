@@ -142,7 +142,7 @@ function createRoom(mode) {
 function findRoom(mode) {
   const max = mode==='tdm' ? TDM_MAX : FFA_MAX;
   for (const r of Object.values(rooms[mode])) {
-    if (Object.keys(r.players).length < max && !r.gameOver) return r;
+    if (Object.keys(r.players).length < max) return r;
   }
   return createRoom(mode);
 }
@@ -495,8 +495,15 @@ setInterval(() => {
                 if (room.mode==='tdm' && shooter.team) {
                   room.teamKills[shooter.team]=(room.teamKills[shooter.team]||0)+1;
                   roomIO(room).emit('teamKills', room.teamKills);
-                  // TDM win condition
+                  // TDM win condition — emit kill/lb first, then intermission
                   if (room.teamKills[shooter.team] >= TDM_KILLS_TO_WIN) {
+                    room.leaderboardDirty=true;
+                    roomIO(room).emit('kill',{
+                      killerName:shooter.name, killerColor:shooter.color, killerTeam:shooter.team,
+                      victimName:p.name, victimColor:p.color, victimTeam:p.team,
+                    });
+                    roomIO(room).emit('leaderboard',getLeaderboard(room));
+                    roomIO(room).emit('died',{victimId:p.id,respawnIn:RESPAWN_MS});
                     startIntermission(room);
                     room.bullets.length=0;
                     break;
@@ -509,7 +516,10 @@ setInterval(() => {
                 });
                 roomIO(room).emit('leaderboard',getLeaderboard(room));
               }
-              roomIO(room).emit('died',{victimId:p.id,respawnIn:RESPAWN_MS});
+              // Only emit died if not already handled by TDM win path above
+              if (room.roundState==='playing') {
+                roomIO(room).emit('died',{victimId:p.id,respawnIn:RESPAWN_MS});
+              }
             }
             break;
           }

@@ -28,7 +28,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 #mode-select{display:flex;gap:8px;width:100%}
 .mode-btn{flex:1;padding:11px 8px;border:1.5px solid rgba(255,255,255,0.1);background:transparent;border-radius:10px;color:rgba(255,255,255,.5);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;touch-action:auto;text-align:center}
 .mode-btn.active{color:#fff;border-color:currentColor;background:rgba(255,255,255,.07)}
-#btn-ffa{color:#e91e8c}.#btn-ffa.active{border-color:#e91e8c;background:rgba(233,30,140,.1)}
+#btn-ffa{color:#e91e8c}#btn-ffa.active{border-color:#e91e8c;background:rgba(233,30,140,.1);color:#e91e8c}
 #btn-tdm.active{border-color:#3498db;background:rgba(52,152,219,.1);color:#3498db}
 .mode-btn:active{transform:scale(.97)}
 
@@ -62,14 +62,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 #round-timer.urgent{color:#e74c3c;animation:timerpulse .6s ease-in-out infinite}
 @keyframes timerpulse{0%,100%{opacity:1}50%{opacity:.6}}
 
-/* ── TEAM SCORE BAR (TDM only) ── */
-#team-bar{position:absolute;top:88px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;pointer-events:none;white-space:nowrap}
-#team-red-score{font-size:22px;font-weight:900;color:#e74c3c;min-width:32px;text-align:right;text-shadow:0 0 12px #e74c3c66}
-#team-bar-track{width:180px;height:10px;background:rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;position:relative}
-#team-bar-red{position:absolute;left:0;top:0;height:100%;background:#e74c3c;border-radius:10px 0 0 10px;transition:width .3s}
-#team-bar-blue{position:absolute;right:0;top:0;height:100%;background:#3498db;border-radius:0 10px 10px 0;transition:width .3s}
-#team-blue-score{font-size:22px;font-weight:900;color:#3498db;min-width:32px;text-shadow:0 0 12px #3498db66}
-#team-kills-to-win{font-size:9px;color:rgba(255,255,255,.25);letter-spacing:1px;text-align:center;margin-top:3px}
+/* team-bar styles now inline */
 
 /* leaderboard */
 #lb{position:absolute;top:44px;right:10px;background:rgba(0,0,0,0.6);border-radius:10px;padding:10px 13px;min-width:160px;max-width:180px;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.07)}
@@ -144,7 +137,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
   #mm-wrap{display:none}#chat-wrap{display:none}
   #lb{max-width:130px;top:40px}#round-bar{top:36px}#perf-bar{top:6px}
   #kf{top:36px;left:calc(10px + env(safe-area-inset-left,0px));max-width:38vw}
-  #team-bar{top:80px}
+  #team-bar-wrap{top:80px}
 }
 
 /* intermission */
@@ -223,15 +216,17 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
   </div>
 
   <!-- TDM team score bar -->
-  <div id="team-bar">
-    <span id="team-red-score">0</span>
-    <div id="team-bar-track">
-      <div id="team-bar-red" style="width:50%"></div>
-      <div id="team-bar-blue" style="width:50%"></div>
+  <div id="team-bar-wrap" style="position:absolute;top:88px;left:50%;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:4px;pointer-events:none">
+    <div id="team-bar" style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+      <span id="team-red-score" style="font-size:22px;font-weight:900;color:#e74c3c;min-width:32px;text-align:right;text-shadow:0 0 12px #e74c3c66">0</span>
+      <div id="team-bar-track" style="width:180px;height:10px;background:rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;position:relative">
+        <div id="team-bar-red" style="position:absolute;left:0;top:0;height:100%;width:50%;background:#e74c3c;border-radius:10px 0 0 10px;transition:width .3s"></div>
+        <div id="team-bar-blue" style="position:absolute;right:0;top:0;height:100%;width:50%;background:#3498db;border-radius:0 10px 10px 0;transition:width .3s"></div>
+      </div>
+      <span id="team-blue-score" style="font-size:22px;font-weight:900;color:#3498db;min-width:32px;text-shadow:0 0 12px #3498db66">0</span>
     </div>
-    <span id="team-blue-score">0</span>
+    <div id="team-kills-to-win" style="font-size:9px;color:rgba(255,255,255,.2);letter-spacing:1px">First to 20 kills wins</div>
   </div>
-  <div id="team-kills-to-win" style="position:absolute;top:120px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.2);letter-spacing:1px;display:none">First to 20 kills wins</div>
 
   <div id="lb"><div id="lb-head">🏆 Top</div><div id="lb-rows"></div></div>
   <div id="kf"></div>
@@ -550,8 +545,7 @@ function showTeamBanner(team){
 }
 function setupTeamHUD(mode){
   const show=mode==='tdm';
-  document.getElementById('team-bar').style.display=show?'flex':'none';
-  document.getElementById('team-kills-to-win').style.display=show?'block':'none';
+  document.getElementById('team-bar-wrap').style.display=show?'flex':'none';
   document.getElementById('team-kills-to-win').textContent=`First to ${tdmKillsToWin} kills wins`;
   const badge=document.getElementById('team-badge');
   if(show&&myTeam){

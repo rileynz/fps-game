@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Arena.io</title>
-  <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Arena.io">
 <meta name="theme-color" content="#0f0f23">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-512.png">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#1a1a2e;font-family:'Segoe UI',Arial,sans-serif;overscroll-behavior:none}
@@ -347,7 +347,7 @@ let tdmKillsToWin=20;
 let selectedMode='ffa';
 const roster={};
 let prevState=null,nextState=null,interpT=0;
-const INTERP_PERIOD=1000/20;
+const INTERP_PERIOD=1000/18; // slightly longer window = smoother motion
 
 const local={x:1200,y:1200,angle:0,alive:true,hp:100,score:0,kills:0,color:'#e74c3c',name:'',team:null};
 
@@ -397,7 +397,7 @@ function predictMove(dt){
 function reconcile(srv){
   if(!srv)return;
   const dx=srv.x-local.x,dy=srv.y-local.y,d=Math.sqrt(dx*dx+dy*dy);
-  if(d>80){local.x=srv.x;local.y=srv.y;}else{local.x+=dx*.12;local.y+=dy*.12;}
+  if(d>80){local.x=srv.x;local.y=srv.y;}else{local.x+=dx*.08;local.y+=dy*.08;}
   local.hp=srv.hp;local.score=srv.score;local.kills=srv.kills;
   local.alive=srv.alive;local.color=srv.color;local.name=srv.name;local.team=srv.team;
 }
@@ -670,6 +670,11 @@ function drawBorder(){
 function drawObstacles(){if(obsCv){const [bx,by]=ws(0,0);ctx.drawImage(obsCv,bx,by);}}
 
 const playerChatBubbles={};
+
+// Bullet extrapolation — track last known position + velocity per bullet
+// Server sends x,y at 20/s. We extrapolate forward so bullets look smooth at 60fps.
+const bulletTracker={}; // id -> {x,y,vx,vy,color,lastSeen}
+const BULLET_SPEED_CLIENT=10; // must match server BULLET_SPEED
 function drawChatBubble(sx,sy,r,id){
   const bubble=playerChatBubbles[id];if(!bubble)return;
   if(Date.now()>bubble.expires){delete playerChatBubbles[id];return;}
@@ -734,13 +739,45 @@ function drawPlayer(p,useLocal){
     ctx.fillStyle=php>60?'#2ecc71':php>30?'#f39c12':'#e74c3c';ctx.fillRect(bx2,by2,bw*(php/100),bh);
   }
 }
-function drawBullet(b){
-  const [sx,sy]=ws(b.x,b.y);if(sx<-20||sx>VW+20||sy<-20||sy>VH+20)return;
-  ctx.drawImage(getBullet(b.c||'#ffffff'),sx-9,sy-9);
+function drawBullet(b,now){
+  // Extrapolate bullet position forward from last server update
+  const tr=bulletTracker[b.id];
+  let bx=b.x,by=b.y;
+  if(tr){
+    // How long since server told us this bullet's position?
+    const age=(now-tr.lastSeen)/1000;
+    bx=tr.x+tr.vx*age*60; // vx is per-tick at 60fps, convert to per-second
+    by=tr.y+tr.vy*age*60;
+  }
+  const [sx,sy]=ws(bx,by);
+  if(sx<-30||sx>VW+30||sy<-30||sy>VH+30)return;
+
+  // Draw trail — line from behind to current position gives motion blur effect
+  if(tr){
+    const trailLen=14;
+    const [tx,ty]=ws(bx-tr.vx*trailLen,by-tr.vy*trailLen);
+    const grad=ctx.createLinearGradient(tx,ty,sx,sy);
+    const col=b.c||'#ffffff';
+    grad.addColorStop(0,'transparent');
+    grad.addColorStop(1,col+'cc');
+    ctx.strokeStyle=grad;
+    ctx.lineWidth=4;
+    ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(sx,sy);ctx.stroke();
+  }
+
+  // Bullet head — bright core with soft glow
+  const col=b.c||'#ffffff';
+  ctx.fillStyle=col+'44';
+  ctx.beginPath();ctx.arc(sx,sy,7,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.arc(sx,sy,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffffffcc';
+  ctx.beginPath();ctx.arc(sx-1,sy-1,1.5,0,Math.PI*2);ctx.fill();
 }
 
 // ── Input sending ──────────────────────────────────────────────────────────────
-let lastKeyStr='',lastSentAngle=0,inputTick=0;
+let lastKeyStr='',lastSentAngle=0,inputTick=0,lastShootTime=0;
 function sendInput(){
   inputTick++;if(inputTick%2!==0)return;
   if(roundState!=='playing')return;
@@ -753,10 +790,13 @@ function sendInput(){
   lastKeyStr=kStr;lastSentAngle=local.angle;
   socket.emit('input',{keys:k,angle:local.angle});
 }
-function handleShoot(){
-  const want=(isMobile?mobileShoot:shootDown)&&shootCooldown<=0&&local.alive&&roundState==='playing';
-  if(want){socket.emit('shoot',{angle:local.angle});shootCooldown=10;}
-  if(shootCooldown>0)shootCooldown--;
+const SHOOT_COOLDOWN_MS=160; // ~10 frames at 60fps, matches server
+function handleShoot(ts){
+  const want=(isMobile?mobileShoot:shootDown)&&local.alive&&roundState==='playing';
+  if(want&&ts-lastShootTime>=SHOOT_COOLDOWN_MS){
+    socket.emit('shoot',{angle:local.angle});
+    lastShootTime=ts;
+  }
 }
 
 // ── Chat ───────────────────────────────────────────────────────────────────────
@@ -808,8 +848,8 @@ function loop(ts){
   if(inGame&&myId&&roundState==='playing'){
     predictMove(dt);
     reconcile(gameState?.players?.find(p=>p.id===myId));
-    sendInput();handleShoot();
-    camX+=(local.x-camX)*.13;camY+=(local.y-camY)*.13;
+    sendInput();handleShoot(ts);
+    camX+=(local.x-camX)*.10;camY+=(local.y-camY)*.10;
   }
   if(roundState==='playing')updateTimerDisplay();
 
@@ -819,7 +859,8 @@ function loop(ts){
   interpT=Math.min(1,interpT+dt/INTERP_PERIOD);
   const renderState=nextState||gameState;
   if(renderState){
-    for(const b of renderState.bullets)drawBullet(b);
+    const renderNow=performance.now();
+    for(const b of renderState.bullets)drawBullet(b,renderNow);
     for(const p of renderState.players){
       if(p.id===myId)continue;
       let rp=p;
@@ -881,6 +922,29 @@ socket.on('state',state=>{
   if(state.t!==undefined){clientTimeLeft=state.t*1000;lastTimerSync=Date.now();}
   if(state.roundState)roundState=state.roundState;
   if(state.teamKills)teamKills=state.teamKills;
+  // Update bullet tracker for extrapolation
+  const now2=performance.now();
+  const seenIds=new Set();
+  for(const b of state.bullets){
+    seenIds.add(b.id);
+    if(bulletTracker[b.id]){
+      // Infer velocity from position delta since last update
+      const dt2=(now2-bulletTracker[b.id].lastSeen)/1000;
+      if(dt2>0&&dt2<0.2){
+        bulletTracker[b.id].vx=(b.x-bulletTracker[b.id].x)/(dt2*60);
+        bulletTracker[b.id].vy=(b.y-bulletTracker[b.id].y)/(dt2*60);
+      }
+      bulletTracker[b.id].x=b.x;
+      bulletTracker[b.id].y=b.y;
+      bulletTracker[b.id].color=b.c;
+      bulletTracker[b.id].lastSeen=now2;
+    } else {
+      bulletTracker[b.id]={x:b.x,y:b.y,vx:0,vy:0,color:b.c,lastSeen:now2};
+    }
+  }
+  // Remove bullets that are gone
+  for(const id in bulletTracker){if(!seenIds.has(parseInt(id)&&id)||!seenIds.has(id)){delete bulletTracker[id];}}
+
   prevState=nextState||state;nextState=state;interpT=0;
   const me=state.players.find(p=>p.id===myId);if(!me)return;
   const r=roster[myId]||{};
@@ -995,13 +1059,6 @@ function setupMobileControls(){
   canvas.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 }
 setupMobileControls();
-</script>
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js")
-    .then(() => console.log("SW registered"))
-    .catch(err => console.error(err));
-}
 </script>
 </body>
 </html>

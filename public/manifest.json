@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Arena IO",
-  "short_name": "Arena IO",
+  "name": "Arena.io",
+  "short_name": "Arena.io",
   "description": "Multiplayer top-down arena shooter with team modes and 5 maps",
   "start_url": "/",
   "scope": "/",

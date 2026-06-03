@@ -671,10 +671,11 @@ function drawObstacles(){if(obsCv){const [bx,by]=ws(0,0);ctx.drawImage(obsCv,bx,
 
 const playerChatBubbles={};
 
-// Bullet extrapolation — track last known position + velocity per bullet
-// Server sends x,y at 20/s. We extrapolate forward so bullets look smooth at 60fps.
-const bulletTracker={}; // id -> {x,y,vx,vy,color,lastSeen}
-const BULLET_SPEED_CLIENT=10; // must match server BULLET_SPEED
+// ── Bullet extrapolation ───────────────────────────────────────────────────────
+// Server broadcasts at 20/s. We store each bullet's velocity (sent from server)
+// and extrapolate its position every frame at 60fps so motion is perfectly smooth.
+// vx/vy are world-units per physics tick (60/s). To get per-ms: divide by 60*1000.
+const bulletTracker={}; // id -> {x,y,vx,vy,color,spawnTime}
 function drawChatBubble(sx,sy,r,id){
   const bubble=playerChatBubbles[id];if(!bubble)return;
   if(Date.now()>bubble.expires){delete playerChatBubbles[id];return;}
@@ -739,41 +740,53 @@ function drawPlayer(p,useLocal){
     ctx.fillStyle=php>60?'#2ecc71':php>30?'#f39c12':'#e74c3c';ctx.fillRect(bx2,by2,bw*(php/100),bh);
   }
 }
-function drawBullet(b,now){
-  // Extrapolate bullet position forward from last server update
-  const tr=bulletTracker[b.id];
-  let bx=b.x,by=b.y;
-  if(tr){
-    // How long since server told us this bullet's position?
-    const age=(now-tr.lastSeen)/1000;
-    bx=tr.x+tr.vx*age*60; // vx is per-tick at 60fps, convert to per-second
-    by=tr.y+tr.vy*age*60;
-  }
-  const [sx,sy]=ws(bx,by);
-  if(sx<-30||sx>VW+30||sy<-30||sy>VH+30)return;
+function drawBullet(b, now){
+  const tr = bulletTracker[b.id];
+  let bx = b.x, by = b.y;
 
-  // Draw trail — line from behind to current position gives motion blur effect
-  if(tr){
-    const trailLen=14;
-    const [tx,ty]=ws(bx-tr.vx*trailLen,by-tr.vy*trailLen);
-    const grad=ctx.createLinearGradient(tx,ty,sx,sy);
-    const col=b.c||'#ffffff';
-    grad.addColorStop(0,'transparent');
-    grad.addColorStop(1,col+'cc');
-    ctx.strokeStyle=grad;
-    ctx.lineWidth=4;
-    ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(sx,sy);ctx.stroke();
+  if(tr && (tr.vx || tr.vy)){
+    // Extrapolate using real velocity from server.
+    // vx/vy are world-units per physics tick (server runs at 60 ticks/s).
+    // Convert: world-units/tick * ticks/ms = vx / (1000/60)
+    const elapsedMs = now - tr.lastSeen;
+    const ticksElapsed = elapsedMs / (1000 / 60);
+    bx = tr.x + tr.vx * ticksElapsed;
+    by = tr.y + tr.vy * ticksElapsed;
   }
 
-  // Bullet head — bright core with soft glow
-  const col=b.c||'#ffffff';
-  ctx.fillStyle=col+'44';
-  ctx.beginPath();ctx.arc(sx,sy,7,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=col;
-  ctx.beginPath();ctx.arc(sx,sy,4,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#ffffffcc';
-  ctx.beginPath();ctx.arc(sx-1,sy-1,1.5,0,Math.PI*2);ctx.fill();
+  const [sx, sy] = ws(bx, by);
+  if(sx < -40 || sx > VW+40 || sy < -40 || sy > VH+40) return;
+
+  const col = (tr && tr.color) || b.c || '#ffee66';
+
+  // Trail — drawn from behind the bullet in direction of travel
+  if(tr && (tr.vx || tr.vy)){
+    const speed = Math.sqrt(tr.vx*tr.vx + tr.vy*tr.vy);
+    // Normalise direction
+    const nx = tr.vx / speed, ny = tr.vy / speed;
+    const trailPx = 18; // trail length in world units
+    const [tx, ty] = ws(bx - nx*trailPx, by - ny*trailPx);
+    const grad = ctx.createLinearGradient(tx, ty, sx, sy);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(1, col + 'bb');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+  }
+
+  // Glow
+  ctx.fillStyle = col + '33';
+  ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI*2); ctx.fill();
+  // Core
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI*2); ctx.fill();
+  // Highlight
+  ctx.fillStyle = '#ffffff99';
+  ctx.beginPath(); ctx.arc(sx-1, sy-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
 
 // ── Input sending ──────────────────────────────────────────────────────────────
@@ -922,28 +935,23 @@ socket.on('state',state=>{
   if(state.t!==undefined){clientTimeLeft=state.t*1000;lastTimerSync=Date.now();}
   if(state.roundState)roundState=state.roundState;
   if(state.teamKills)teamKills=state.teamKills;
-  // Update bullet tracker for extrapolation
-  const now2=performance.now();
-  const seenIds=new Set();
+  // Update bullet tracker — server now sends vx/vy so extrapolation is exact
+  const now2 = performance.now();
+  const seenIds = new Set();
   for(const b of state.bullets){
     seenIds.add(b.id);
-    if(bulletTracker[b.id]){
-      // Infer velocity from position delta since last update
-      const dt2=(now2-bulletTracker[b.id].lastSeen)/1000;
-      if(dt2>0&&dt2<0.2){
-        bulletTracker[b.id].vx=(b.x-bulletTracker[b.id].x)/(dt2*60);
-        bulletTracker[b.id].vy=(b.y-bulletTracker[b.id].y)/(dt2*60);
-      }
-      bulletTracker[b.id].x=b.x;
-      bulletTracker[b.id].y=b.y;
-      bulletTracker[b.id].color=b.c;
-      bulletTracker[b.id].lastSeen=now2;
-    } else {
-      bulletTracker[b.id]={x:b.x,y:b.y,vx:0,vy:0,color:b.c,lastSeen:now2};
-    }
+    // Always update position and velocity from server — vx/vy are constant per bullet
+    bulletTracker[b.id] = {
+      x: b.x, y: b.y,
+      vx: b.vx || 0, vy: b.vy || 0,
+      color: b.c,
+      lastSeen: now2,
+    };
   }
-  // Remove bullets that are gone
-  for(const id in bulletTracker){if(!seenIds.has(parseInt(id)&&id)||!seenIds.has(id)){delete bulletTracker[id];}}
+  // Clean up bullets no longer in the server state
+  for(const id in bulletTracker){
+    if(!seenIds.has(Number(id))) delete bulletTracker[id];
+  }
 
   prevState=nextState||state;nextState=state;interpT=0;
   const me=state.players.find(p=>p.id===myId);if(!me)return;

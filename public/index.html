@@ -40,6 +40,38 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 .menu-tips{font-size:11px;color:#33334a;text-align:center;margin-top:14px;line-height:2;padding:0 12px}
 .menu-tips b{color:#555570}
 
+/* ── WEEKLY LEADERBOARD ── */
+#weekly-panel{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:55;backdrop-filter:blur(10px);touch-action:auto;padding:20px}
+#weekly-panel h2{font-size:11px;color:rgba(255,255,255,.3);letter-spacing:4px;text-transform:uppercase;margin-bottom:4px}
+#weekly-title{font-size:28px;font-weight:900;color:#f39c12;margin-bottom:4px;text-align:center}
+#weekly-resets{font-size:10px;color:rgba(255,255,255,.25);letter-spacing:1px;margin-bottom:20px}
+#weekly-tabs{display:flex;gap:8px;margin-bottom:14px}
+.wtab{padding:6px 16px;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:transparent;color:rgba(255,255,255,.4);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;touch-action:auto;letter-spacing:1px;transition:all .15s}
+.wtab.active{background:rgba(243,156,18,.15);border-color:#f39c12;color:#f39c12}
+#weekly-table{width:min(400px,90vw);background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.07);overflow:hidden}
+.wlb-header{display:grid;grid-template-columns:28px 1fr 60px 60px;gap:0;padding:8px 14px;font-size:9px;color:rgba(255,255,255,.25);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.07)}
+.wlb-row{display:grid;grid-template-columns:28px 1fr 60px 60px;gap:0;padding:9px 14px;font-size:12px;font-weight:600;border-bottom:1px solid rgba(255,255,255,.04);align-items:center}
+.wlb-row:last-child{border-bottom:none}
+.wlb-row.wme{background:rgba(243,156,18,.08)}
+.wlb-row.top1 .wrank{color:#f39c12;font-size:14px}
+.wlb-row.top2 .wrank{color:#aaaaaa}
+.wlb-row.top3 .wrank{color:#cd7f32}
+.wrank{color:rgba(255,255,255,.25);font-size:10px;font-weight:700}
+.wname{display:flex;align-items:center;gap:6px;overflow:hidden}
+.wdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.wname-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.9)}
+.wkills{color:#e74c3c;font-weight:700;text-align:right}
+.wscore{color:#f39c12;font-weight:700;text-align:right}
+#weekly-empty{padding:28px;text-align:center;color:rgba(255,255,255,.2);font-size:13px}
+#weekly-close{margin-top:18px;padding:9px 28px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.5);font-family:inherit;font-size:12px;border-radius:8px;cursor:pointer;touch-action:auto;letter-spacing:1px}
+#weekly-close:hover{background:rgba(255,255,255,.06)}
+/* weekly button on menu */
+#btn-weekly{width:100%;padding:10px;border:1px solid rgba(243,156,18,.3);background:rgba(243,156,18,.06);border-radius:10px;color:#f39c12;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;touch-action:auto;letter-spacing:1px;transition:all .15s}
+#btn-weekly:hover,#btn-weekly:active{background:rgba(243,156,18,.12);border-color:#f39c12}
+/* weekly btn in-game HUD */
+#weekly-hud-btn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:5px 14px;background:rgba(243,156,18,.15);border:1px solid rgba(243,156,18,.3);border-radius:20px;color:#f39c12;font-size:10px;font-weight:700;cursor:pointer;pointer-events:all;z-index:15;letter-spacing:1px;display:none;touch-action:auto;backdrop-filter:blur(4px)}
+@media(max-width:768px),(max-height:500px){#weekly-hud-btn{display:none!important}}
+
 /* ── LANDSCAPE HINT ── */
 #landscape-hint{position:fixed;inset:0;background:#0f0f23;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;color:#fff;text-align:center;gap:14px;touch-action:auto}
 .lh-icon{font-size:52px;animation:rotatehint 2s ease-in-out infinite}
@@ -185,6 +217,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
       <button class="mode-btn" id="btn-tdm" onclick="setMode('tdm')">🔵 Team 2v2+</button>
     </div>
     <button id="play-btn">Play Now</button>
+    <button id="btn-weekly" onclick="openWeekly()">🏆 Weekly Leaderboard</button>
     <div id="menu-online">— players online</div>
   </div>
   <div class="menu-tips">
@@ -292,6 +325,30 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
   <div id="int-countdown">Next round in <b id="int-secs">15</b>s</div>
 </div>
 
+<!-- ── WEEKLY LEADERBOARD PANEL ── -->
+<div id="weekly-panel">
+  <h2>🏆 Leaderboard</h2>
+  <div id="weekly-title">This Week</div>
+  <div id="weekly-resets">Resets every Monday</div>
+  <div id="weekly-tabs">
+    <button class="wtab active" onclick="showWeeklyTab('current')">This Week</button>
+    <button class="wtab" onclick="showWeeklyTab('prev')" id="prev-tab" style="display:none">Last Week</button>
+  </div>
+  <div id="weekly-table">
+    <div class="wlb-header">
+      <div class="wrank">#</div>
+      <div>Player</div>
+      <div class="wkills">Kills</div>
+      <div class="wscore">Score</div>
+    </div>
+    <div id="weekly-rows"></div>
+  </div>
+  <button id="weekly-close" onclick="closeWeekly()">Close</button>
+</div>
+
+<!-- weekly btn shown in-game -->
+<div id="weekly-hud-btn" onclick="openWeekly()">🏆 Weekly</div>
+
 <div id="map-banner">
   <div id="map-banner-inner">
     <div id="map-banner-emoji">⚔️</div>
@@ -346,6 +403,8 @@ let teamKills={red:0,blue:0};
 let tdmKillsToWin=20;
 let selectedMode='ffa';
 const roster={};
+let weeklyData=null; // {weekKey, entries, prevWeek, resetsAt}
+let weeklyTab='current';
 let prevState=null,nextState=null,interpT=0;
 const INTERP_PERIOD=1000/18; // slightly longer window = smoother motion
 
@@ -476,6 +535,11 @@ function joinGame(){
     else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();
   }
   inGame=true;
+  // Show weekly hud button
+  setTimeout(()=>{
+    const btn=document.getElementById('weekly-hud-btn');
+    if(btn&&weeklyData)btn.style.display='block';
+  },1000);
 }
 document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')joinGame();});
 document.getElementById('play-btn').addEventListener('click',joinGame);
@@ -918,6 +982,7 @@ socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderb
   setupTeamHUD(mode);
   if(mode==='tdm'&&mt){showTeamBanner(mt);}
   if(rs==='intermission'&&voteOptions)showIntermission({roundWinner,voteOptions,endsAt:intermissionEndsAt,roundNumber:rn,mode});
+  if(weeklyLeaderboard){weeklyData=weeklyLeaderboard;}
 });
 
 socket.on('state',state=>{
@@ -1001,6 +1066,17 @@ socket.on('chat',({id,name,color,msg,teamOnly,team})=>{
   addChatMsg(name,color,msg,teamOnly,team);
   playerChatBubbles[id]={msg,expires:Date.now()+4000};
 });
+socket.on('weeklyLeaderboard',data=>{
+  weeklyData=data;
+  // Show weekly HUD button in-game
+  if(inGame){
+    const btn=document.getElementById('weekly-hud-btn');
+    if(btn)btn.style.display='block';
+  }
+  // If panel is open, re-render
+  if(document.getElementById('weekly-panel').style.display!=='none') renderWeeklyLB();
+});
+
 socket.on('disconnect',()=>{
   document.getElementById('menu').innerHTML=`<div class="menu-logo" style="font-size:42px;background:linear-gradient(135deg,#e74c3c,#c0392b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Disconnected</div><div class="menu-sub">Lost connection</div><div class="menu-box"><button onclick="location.reload()" style="width:100%;padding:14px;background:linear-gradient(135deg,#e74c3c,#c0392b);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;touch-action:auto">Reconnect</button></div>`;
   document.getElementById('menu').style.display='flex';
@@ -1008,6 +1084,59 @@ socket.on('disconnect',()=>{
   document.getElementById('mobile-controls').style.display='none';
   document.getElementById('intermission').style.display='none';
 });
+
+// ── Weekly leaderboard ────────────────────────────────────────────────────────
+function openWeekly(){
+  document.getElementById('weekly-panel').style.display='flex';
+  renderWeeklyLB();
+}
+function closeWeekly(){
+  document.getElementById('weekly-panel').style.display='none';
+}
+function showWeeklyTab(tab){
+  weeklyTab=tab;
+  document.querySelectorAll('.wtab').forEach(b=>b.classList.toggle('active',b.textContent.includes(tab==='current'?'This':'Last')));
+  renderWeeklyLB();
+}
+function renderWeeklyLB(){
+  if(!weeklyData) return;
+  const entries=weeklyTab==='current'
+    ? weeklyData.entries
+    : (weeklyData.prevWeek?.entries||[]);
+  const titleEl=document.getElementById('weekly-title');
+  titleEl.textContent=weeklyTab==='current'?'This Week':'Last Week';
+
+  // Update prev tab visibility
+  const prevTab=document.getElementById('prev-tab');
+  if(prevTab) prevTab.style.display=weeklyData.prevWeek?.entries?.length?'block':'none';
+
+  // Countdown to reset
+  if(weeklyData.resetsAt){
+    const diff=weeklyData.resetsAt-Date.now();
+    const days=Math.floor(diff/86400000);
+    const hrs=Math.floor((diff%86400000)/3600000);
+    document.getElementById('weekly-resets').textContent=
+      `Resets in ${days}d ${hrs}h · Week ${weeklyData.weekKey||''}`;
+  }
+
+  const rows=document.getElementById('weekly-rows');
+  if(!entries||entries.length===0){
+    rows.innerHTML='<div id="weekly-empty">No games played this week yet.<br>Be the first on the board!</div>';
+    return;
+  }
+  const myName=local.name;
+  rows.innerHTML=entries.slice(0,10).map((e,i)=>{
+    const isMe=e.name===myName;
+    const rankEmoji=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+    const cls=['wlb-row',isMe?'wme':'',i===0?'top1':i===1?'top2':i===2?'top3':''].filter(Boolean).join(' ');
+    return `<div class="${cls}">
+      <div class="wrank">${rankEmoji}</div>
+      <div class="wname"><div class="wdot" style="background:${e.color}"></div><div class="wname-text">${e.name}</div></div>
+      <div class="wkills">${e.kills}</div>
+      <div class="wscore">${e.score.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
 
 // ── Mobile controls ────────────────────────────────────────────────────────────
 function setupMobileControls(){

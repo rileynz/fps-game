@@ -382,7 +382,7 @@ if(window.visualViewport){
   window.visualViewport.addEventListener('scroll',resize);
 }
 
-const socket=io({transports:['websocket']});
+const socket=io('https://arena-io-0hn9.onrender.com', { transports: ['websocket'] });
 const SV_SPEED=4.0,SV_R=15;
 
 // ── State ──────────────────────────────────────────────────────────────────────

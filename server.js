@@ -35,14 +35,29 @@ const FFA_COLORS = [
   '#1abc9c','#e67e22','#e91e8c','#00bcd4','#8bc34a','#ff6b6b',
 ];
 
+// ── Bot constants ─────────────────────────────────────────────────────────────
+const BOT_TARGET_TOTAL  = 6;   // aim for this many total (real + bots) when room is quiet
+const BOT_MAX_REAL      = 4;   // stop adding bots once this many real players exist
+const BOT_CHASE_RANGE   = 700; // px — bot starts chasing when enemy within this range
+const BOT_SHOOT_RANGE   = 450; // px — bot shoots when enemy within this range
+const BOT_STUCK_TICKS   = 90;  // ticks before bot decides it's stuck and turns
+const BOT_WANDER_CHANGE = 180; // ticks between random direction changes while wandering
+const BOT_CHAT_MIN_MS   = 30000; // min ms between bot chat messages
+const BOT_CHAT_MAX_MS   = 120000;
+const BOT_CHAT_MSGS = ['gg','nice','lets go','👍','💀','ez','good game','🔥','no way','lol'];
+const BOT_NAMES = [
+  'xX_Pr0_Xx','NoobSlayer','Phantom','ShadowFox','BlazeMaster',
+  'DarkKnight','IronWolf','SpeedDemon','NightHawk','CoolGamer',
+  'ProSniper','StealthX','RageQuit','BulletKing','ArenaGod',
+  'GhostRider','VenomStrike','ThunderBolt','CyberDude','NeonSlayer',
+  'PixelHunter','FrostByte','ViperX','SteelFang','CrimsonAce',
+];
+
 // ── Weekly leaderboard ────────────────────────────────────────────────────────
-// Stored in weekly.json so it survives server restarts.
-// Structure: { weekKey: 'YYYY-WW', entries: [{name, kills, score, color}] }
 const WEEKLY_FILE = path.join(__dirname, 'weekly.json');
 
 function getWeekKey() {
   const now = new Date();
-  // ISO week number
   const jan4 = new Date(now.getFullYear(), 0, 4);
   const startOfWeek = new Date(jan4);
   startOfWeek.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
@@ -54,10 +69,8 @@ function loadWeekly() {
   try {
     if (fs.existsSync(WEEKLY_FILE)) {
       const data = JSON.parse(fs.readFileSync(WEEKLY_FILE, 'utf8'));
-      // If it's a new week, reset
-      if (data.weekKey !== getWeekKey()) {
+      if (data.weekKey !== getWeekKey())
         return { weekKey: getWeekKey(), entries: [], prevWeek: data };
-      }
       return data;
     }
   } catch(e) { console.error('weekly load error:', e.message); }
@@ -71,11 +84,9 @@ function saveWeekly() {
 
 let weekly = loadWeekly();
 
-// Check for week reset every hour
 setInterval(() => {
   const key = getWeekKey();
   if (weekly.weekKey !== key) {
-    console.log(`New week detected (${key}), resetting weekly leaderboard`);
     weekly = { weekKey: key, entries: [], prevWeek: { weekKey: weekly.weekKey, entries: weekly.entries } };
     saveWeekly();
     io.emit('weeklyLeaderboard', getWeeklyLB());
@@ -86,17 +97,14 @@ function getWeeklyLB() {
   return {
     weekKey: weekly.weekKey,
     entries: weekly.entries.slice(0, WEEKLY_LB_SIZE),
-    prevWeek: weekly.prevWeek ? {
-      weekKey: weekly.prevWeek.weekKey,
-      entries: (weekly.prevWeek.entries || []).slice(0, WEEKLY_LB_SIZE),
-    } : null,
+    prevWeek: weekly.prevWeek ? { weekKey: weekly.prevWeek.weekKey, entries: (weekly.prevWeek.entries||[]).slice(0,WEEKLY_LB_SIZE) } : null,
     resetsAt: getNextMonday(),
   };
 }
 
 function getNextMonday() {
   const now = new Date();
-  const day = now.getDay(); // 0=Sun, 1=Mon...
+  const day = now.getDay();
   const daysUntilMonday = day === 0 ? 1 : 8 - day;
   const next = new Date(now);
   next.setDate(now.getDate() + daysUntilMonday);
@@ -104,24 +112,20 @@ function getNextMonday() {
   return next.getTime();
 }
 
-// Called every time a player gets a kill
-function recordWeeklyKill(name, color, killsThisRound, scoreThisRound) {
-  // Find existing entry by name (case-insensitive)
+function recordWeeklyKill(name, color, kills, score) {
+  // Bots don't count toward weekly leaderboard
+  if (name.startsWith('__bot__')) return;
   const key = name.toLowerCase();
   const idx = weekly.entries.findIndex(e => e.name.toLowerCase() === key);
-
   if (idx >= 0) {
-    weekly.entries[idx].kills += killsThisRound;
-    weekly.entries[idx].score += scoreThisRound;
-    weekly.entries[idx].color  = color; // update colour in case they changed
+    weekly.entries[idx].kills += kills;
+    weekly.entries[idx].score += score;
+    weekly.entries[idx].color  = color;
   } else {
-    weekly.entries.push({ name, color, kills: killsThisRound, score: scoreThisRound });
+    weekly.entries.push({ name, color, kills, score });
   }
-
-  // Re-sort by kills descending, score as tiebreak
-  weekly.entries.sort((a,b) => b.kills !== a.kills ? b.kills - a.kills : b.score - a.score);
-  // Keep only top 100 to prevent unbounded growth
-  if (weekly.entries.length > 100) weekly.entries = weekly.entries.slice(0, 100);
+  weekly.entries.sort((a,b) => b.kills !== a.kills ? b.kills-a.kills : b.score-a.score);
+  if (weekly.entries.length > 100) weekly.entries = weekly.entries.slice(0,100);
 }
 
 // ── Maps ──────────────────────────────────────────────────────────────────────
@@ -216,14 +220,14 @@ function createRoom(mode) {
     leaderboardDirty:true, cachedLeaderboard:[],
     colorIdx:0, playerCountTimer:null,
   };
-  rooms[mode][id]=room;
+  rooms[mode][id] = room;
   return room;
 }
 
 function findRoom(mode) {
-  const max=mode==='tdm'?TDM_MAX:FFA_MAX;
+  const max = mode==='tdm' ? TDM_MAX : FFA_MAX;
   for (const r of Object.values(rooms[mode])) {
-    if (Object.keys(r.players).length<max) return r;
+    if (Object.keys(r.players).length < max) return r;
   }
   return createRoom(mode);
 }
@@ -233,32 +237,31 @@ function clamp(v,lo,hi){ return v<lo?lo:v>hi?hi:v; }
 
 function overlapsObstacle(x,y,r,obs) {
   for (const o of obs) {
-    const nx=Math.max(o.x,Math.min(o.x+o.w,x)),ny=Math.max(o.y,Math.min(o.y+o.h,y));
-    const dx=x-nx,dy=y-ny;
-    if (dx*dx+dy*dy<r*r) return true;
+    const nx=Math.max(o.x,Math.min(o.x+o.w,x)), ny=Math.max(o.y,Math.min(o.y+o.h,y));
+    const dx=x-nx, dy=y-ny;
+    if (dx*dx+dy*dy < r*r) return true;
   }
   return false;
 }
 
 function moveWithSlide(px,py,dx,dy,r,obs) {
-  const nx=clamp(px+dx,r,WORLD_W-r),ny=clamp(py+dy,r,WORLD_H-r);
+  const nx=clamp(px+dx,r,WORLD_W-r), ny=clamp(py+dy,r,WORLD_H-r);
   if (!overlapsObstacle(nx,ny,r,obs)) return [nx,ny];
   if (!overlapsObstacle(clamp(px+dx,r,WORLD_W-r),py,r,obs)) return [clamp(px+dx,r,WORLD_W-r),py];
   if (!overlapsObstacle(px,clamp(py+dy,r,WORLD_H-r),r,obs)) return [px,clamp(py+dy,r,WORLD_H-r)];
   return [px,py];
 }
 
-function inViewport(px,py,vx,vy){ return Math.abs(px-vx)<VIEWPORT_PAD&&Math.abs(py-vy)<VIEWPORT_PAD; }
+function inViewport(px,py,vx,vy){ return Math.abs(px-vx)<VIEWPORT_PAD && Math.abs(py-vy)<VIEWPORT_PAD; }
 function currentObs(room){ return MAPS[room.currentMapId].obstacles; }
 
 function randomSpawnForMap(mapId,team) {
-  const map=MAPS[mapId],obs=map.obstacles;
-  const spawns=(team==='red'&&map.redSpawns)?map.redSpawns
-              :(team==='blue'&&map.blueSpawns)?map.blueSpawns:map.spawns;
+  const map=MAPS[mapId], obs=map.obstacles;
+  const spawns=(team==='red'&&map.redSpawns)?map.redSpawns:(team==='blue'&&map.blueSpawns)?map.blueSpawns:map.spawns;
   const shuffled=spawns.slice().sort(()=>Math.random()-.5);
   for (const sp of shuffled) if (!overlapsObstacle(sp.x,sp.y,PLAYER_R+20,obs)) return sp;
-  for (let i=0;i<50;i++) {
-    const x=80+Math.random()*(WORLD_W-160),y=80+Math.random()*(WORLD_H-160);
+  for (let i=0;i<50;i++){
+    const x=80+Math.random()*(WORLD_W-160), y=80+Math.random()*(WORLD_H-160);
     if (!overlapsObstacle(x,y,PLAYER_R+30,obs)) return {x,y};
   }
   return {x:WORLD_W/2,y:WORLD_H/2};
@@ -271,25 +274,33 @@ function assignTeam(room) {
   return reds<=blues?'red':'blue';
 }
 
-function makePlayer(id,name,room) {
+function makePlayer(id,name,room,isBot=false) {
   const mode=room.mode;
   const team=mode==='tdm'?assignTeam(room):null;
   const color=mode==='tdm'?(team==='red'?TEAM_RED_COLOR:TEAM_BLUE_COLOR):FFA_COLORS[room.colorIdx++%FFA_COLORS.length];
   const sp=randomSpawnForMap(room.currentMapId,team);
   return {
-    id,name,team,color,
-    x:sp.x,y:sp.y,angle:0,
-    hp:MAX_HP,alive:true,respawnAt:0,
-    kills:0,deaths:0,score:0,
-    fireCooldown:0,keys:{},
+    id, name, team, color, isBot,
+    x:sp.x, y:sp.y, angle:0,
+    hp:MAX_HP, alive:true, respawnAt:0,
+    kills:0, deaths:0, score:0,
+    fireCooldown:0, keys:{},
+    // bot AI state
+    botState:'wander',      // 'wander' | 'chase' | 'evade'
+    botMoveAngle:Math.random()*Math.PI*2,
+    botStuckTicks:0,
+    botLastX:sp.x, botLastY:sp.y,
+    botWanderTicks:0,
+    botNextChatAt:Date.now()+BOT_CHAT_MIN_MS+Math.random()*(BOT_CHAT_MAX_MS-BOT_CHAT_MIN_MS),
+    botDifficulty:'easy',   // set dynamically based on real player count
   };
 }
 
 function getLeaderboard(room) {
   if (!room.leaderboardDirty) return room.cachedLeaderboard;
-  room.cachedLeaderboard=Object.values(room.players)
+  room.cachedLeaderboard = Object.values(room.players)
     .sort((a,b)=>b.score-a.score).slice(0,LEADERBOARD_SIZE)
-    .map(p=>({id:p.id,name:p.name,score:p.score,kills:p.kills,color:p.color,team:p.team}));
+    .map(p=>({id:p.id,name:p.name,score:p.score,kills:p.kills,color:p.color,team:p.team,isBot:p.isBot}));
   room.leaderboardDirty=false;
   return room.cachedLeaderboard;
 }
@@ -299,9 +310,242 @@ function roomIO(room){ return io.to(`room:${room.id}`); }
 function schedulePlayerCount(room) {
   if (room.playerCountTimer) return;
   room.playerCountTimer=setTimeout(()=>{
-    roomIO(room).emit('playerCount',Object.keys(room.players).length);
+    // Only count real players in the public count
+    const real=Object.values(room.players).filter(p=>!p.isBot).length;
+    roomIO(room).emit('playerCount', real);
     room.playerCountTimer=null;
   },200);
+}
+
+// ── Bot management ────────────────────────────────────────────────────────────
+let botIdCounter = 0;
+const usedBotNames = new Set();
+
+function getRandomBotName() {
+  // Shuffle unused names, fall back to numbered if exhausted
+  const unused = BOT_NAMES.filter(n => !usedBotNames.has(n));
+  if (unused.length > 0) {
+    const name = unused[Math.floor(Math.random()*unused.length)];
+    usedBotNames.add(name);
+    return name;
+  }
+  return `Player${100+Math.floor(Math.random()*900)}`;
+}
+
+function releaseUsedBotName(name) {
+  usedBotNames.delete(name);
+}
+
+function realPlayerCount(room) {
+  return Object.values(room.players).filter(p=>!p.isBot).length;
+}
+
+function botCount(room) {
+  return Object.values(room.players).filter(p=>p.isBot).length;
+}
+
+function botDifficultyForRoom(room) {
+  const real = realPlayerCount(room);
+  if (real <= 1) return 'easy';
+  if (real <= 3) return 'medium';
+  return 'hard';
+}
+
+function spawnBot(room) {
+  const id = `__bot__${botIdCounter++}`;
+  const name = getRandomBotName();
+  const bot = makePlayer(id, name, room, true);
+  bot.botDifficulty = botDifficultyForRoom(room);
+  room.players[id] = bot;
+  room.roster[id] = { name:bot.name, color:bot.color, team:bot.team };
+  // Notify all real players that a new "player" joined
+  roomIO(room).emit('rosterAdd', { id, name:bot.name, color:bot.color, team:bot.team });
+  room.leaderboardDirty = true;
+}
+
+function removeBot(room) {
+  // Remove most recently added bot
+  const bots = Object.values(room.players).filter(p=>p.isBot);
+  if (bots.length === 0) return;
+  const bot = bots[bots.length-1];
+  releaseUsedBotName(bot.name);
+  delete room.players[bot.id];
+  delete room.roster[bot.id];
+  roomIO(room).emit('playerLeft', bot.id);
+  roomIO(room).emit('rosterRemove', bot.id);
+  room.leaderboardDirty = true;
+}
+
+function removeAllBots(room) {
+  const bots = Object.values(room.players).filter(p=>p.isBot);
+  for (const bot of bots) {
+    releaseUsedBotName(bot.name);
+    delete room.players[bot.id];
+    delete room.roster[bot.id];
+    roomIO(room).emit('playerLeft', bot.id);
+    roomIO(room).emit('rosterRemove', bot.id);
+  }
+  if (bots.length > 0) room.leaderboardDirty = true;
+}
+
+// Called every 10 seconds to balance bots in FFA rooms only
+function balanceBots() {
+  for (const room of Object.values(rooms.ffa)) {
+    if (room.roundState !== 'playing') continue;
+    const real = realPlayerCount(room);
+    const bots = botCount(room);
+    const total = real + bots;
+
+    // Update difficulty for existing bots based on current real player count
+    const diff = botDifficultyForRoom(room);
+    for (const p of Object.values(room.players)) {
+      if (p.isBot) p.botDifficulty = diff;
+    }
+
+    if (real >= BOT_MAX_REAL) {
+      // Enough real players — remove all bots gradually
+      if (bots > 0) removeBot(room);
+    } else {
+      // Need more players — spawn up to BOT_TARGET_TOTAL total
+      const need = Math.max(0, BOT_TARGET_TOTAL - total);
+      for (let i=0; i<need; i++) spawnBot(room);
+    }
+  }
+}
+
+// ── Bot AI ────────────────────────────────────────────────────────────────────
+function tickBot(bot, room) {
+  if (!bot.alive || room.roundState !== 'playing') return;
+
+  const obs = currentObs(room);
+  const pList = Object.values(room.players);
+
+  // Find nearest alive enemy (ignore self and other bots when targeting)
+  let nearest = null, nearestDist = Infinity;
+  for (const p of pList) {
+    if (p.id === bot.id || !p.alive) continue;
+    // Bots prefer targeting real players
+    const dx = p.x-bot.x, dy = p.y-bot.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    // Weight real players closer (bots target real players preferentially)
+    const weighted = dist * (p.isBot ? 1.3 : 1.0);
+    if (weighted < nearestDist) { nearestDist=weighted; nearest=p; }
+  }
+
+  // ── State machine ───────────────────────────────────────────────────────────
+  if (bot.botState === 'wander') {
+    if (nearest && nearestDist < BOT_CHASE_RANGE) bot.botState = 'chase';
+    else if (bot.hp < MAX_HP * 0.3) bot.botState = 'evade';
+  } else if (bot.botState === 'chase') {
+    if (!nearest || nearestDist > BOT_CHASE_RANGE * 1.2) bot.botState = 'wander';
+    else if (bot.hp < MAX_HP * 0.3) bot.botState = 'evade';
+  } else if (bot.botState === 'evade') {
+    if (bot.hp > MAX_HP * 0.6) bot.botState = nearest && nearestDist < BOT_CHASE_RANGE ? 'chase' : 'wander';
+  }
+
+  // ── Movement ────────────────────────────────────────────────────────────────
+  let moveAngle = bot.botMoveAngle;
+
+  if (bot.botState === 'chase' && nearest) {
+    moveAngle = Math.atan2(nearest.y-bot.y, nearest.x-bot.x);
+    bot.botMoveAngle = moveAngle;
+  } else if (bot.botState === 'evade' && nearest) {
+    // Run away — opposite direction from nearest enemy
+    moveAngle = Math.atan2(bot.y-nearest.y, bot.x-nearest.x);
+    // Add slight wobble so evade isn't a straight line
+    moveAngle += (Math.random()-0.5) * 0.5;
+    bot.botMoveAngle = moveAngle;
+  } else {
+    // Wander — change direction periodically
+    bot.botWanderTicks++;
+    if (bot.botWanderTicks > BOT_WANDER_CHANGE) {
+      bot.botMoveAngle = Math.random() * Math.PI * 2;
+      bot.botWanderTicks = 0;
+    }
+    moveAngle = bot.botMoveAngle;
+  }
+
+  // Apply movement
+  const dx = Math.cos(moveAngle) * PLAYER_SPEED;
+  const dy = Math.sin(moveAngle) * PLAYER_SPEED;
+  const prevX = bot.x, prevY = bot.y;
+  [bot.x, bot.y] = moveWithSlide(bot.x, bot.y, dx, dy, PLAYER_R, obs);
+
+  // Stuck detection — if position barely changed, rotate and try new direction
+  const moved = Math.abs(bot.x-prevX) + Math.abs(bot.y-prevY);
+  if (moved < 0.1) {
+    bot.botStuckTicks++;
+    if (bot.botStuckTicks > BOT_STUCK_TICKS) {
+      // Turn by 45-135 degrees
+      bot.botMoveAngle += (Math.PI/4) + Math.random()*(Math.PI/2);
+      bot.botStuckTicks = 0;
+      bot.botWanderTicks = 0;
+    }
+  } else {
+    bot.botStuckTicks = 0;
+  }
+
+  // ── Aiming & shooting ───────────────────────────────────────────────────────
+  if (nearest && nearestDist < BOT_SHOOT_RANGE) {
+    // Aim at enemy with accuracy based on difficulty
+    let spread = 0;
+    let fireChance = 0;
+    let lead = false;
+
+    if (bot.botDifficulty === 'easy') {
+      spread = (Math.random()-0.5) * 0.7;  // ±40 degrees roughly
+      fireChance = 0.4;
+    } else if (bot.botDifficulty === 'medium') {
+      spread = (Math.random()-0.5) * 0.3;  // ±17 degrees
+      fireChance = 0.65;
+      lead = true;
+    } else {
+      spread = (Math.random()-0.5) * 0.1;  // ±6 degrees
+      fireChance = 0.85;
+      lead = true;
+    }
+
+    let aimX = nearest.x, aimY = nearest.y;
+    // Lead target — aim slightly ahead of moving enemy
+    if (lead) {
+      const travelTime = nearestDist / BULLET_SPEED;
+      // Estimate next position based on enemy's direction
+      aimX += (nearest.x - (nearest.lastX||nearest.x)) * travelTime * 0.5;
+      aimY += (nearest.y - (nearest.lastY||nearest.y)) * travelTime * 0.5;
+    }
+    nearest.lastX = nearest.x;
+    nearest.lastY = nearest.y;
+
+    bot.angle = Math.atan2(aimY-bot.y, aimX-bot.x) + spread;
+
+    // Shoot
+    if (bot.fireCooldown <= 0 && Math.random() < fireChance && room.bullets.length < MAX_BULLETS) {
+      const a = bot.angle;
+      room.bullets.push({
+        id: room.bulletId++,
+        x: bot.x + Math.cos(a)*(PLAYER_R+6),
+        y: bot.y + Math.sin(a)*(PLAYER_R+6),
+        vx: Math.cos(a)*BULLET_SPEED,
+        vy: Math.sin(a)*BULLET_SPEED,
+        owner: bot.id, ownerTeam: bot.team, ownerColor: bot.color,
+        life: BULLET_LIFE,
+      });
+      bot.fireCooldown = FIRE_COOLDOWN;
+    }
+  } else {
+    // Face direction of travel when not shooting
+    bot.angle = moveAngle;
+  }
+
+  if (bot.fireCooldown > 0) bot.fireCooldown--;
+
+  // ── Random chat messages ────────────────────────────────────────────────────
+  const now = Date.now();
+  if (now >= bot.botNextChatAt) {
+    const msg = BOT_CHAT_MSGS[Math.floor(Math.random()*BOT_CHAT_MSGS.length)];
+    roomIO(room).emit('chat', { id:bot.id, name:bot.name, color:bot.color, msg, teamOnly:false, team:bot.team });
+    bot.botNextChatAt = now + BOT_CHAT_MIN_MS + Math.random()*(BOT_CHAT_MAX_MS-BOT_CHAT_MIN_MS);
+  }
 }
 
 // ── Round management ──────────────────────────────────────────────────────────
@@ -316,25 +560,21 @@ function tallyVotes(room) {
   const counts={};
   for (const id of room.voteOptions) counts[id]=0;
   for (const mapId of Object.values(room.votes)) if(counts[mapId]!==undefined) counts[mapId]++;
-  let best=room.voteOptions[0]||'arena',bestCount=-1;
+  let best=room.voteOptions[0]||'arena', bestCount=-1;
   for (const [id,c] of Object.entries(counts)) if(c>bestCount){bestCount=c;best=id;}
   return {winner:best,counts};
 }
 
 function startIntermission(room) {
   room.roundState='intermission';
-  room.votes={};
-  room.voteOptions=pickVoteOptions(room);
+  room.votes={}; room.voteOptions=pickVoteOptions(room);
   room.intermissionEndsAt=Date.now()+INTERMISSION_MS;
 
-  // ── Record round stats to weekly leaderboard ──────────────────────────────
+  // Record real player stats to weekly leaderboard (bots excluded)
   for (const p of Object.values(room.players)) {
-    if (p.kills > 0) {
-      recordWeeklyKill(p.name, p.color, p.kills, p.score);
-    }
+    if (!p.isBot && p.kills > 0) recordWeeklyKill(p.name, p.color, p.kills, p.score);
   }
   saveWeekly();
-  // Broadcast updated weekly to everyone in this room
   roomIO(room).emit('weeklyLeaderboard', getWeeklyLB());
 
   const pList=Object.values(room.players);
@@ -344,34 +584,52 @@ function startIntermission(room) {
     const tied=room.teamKills.red===room.teamKills.blue;
     room.roundWinner={type:'team',team:winTeam,color:winTeam==='red'?TEAM_RED_COLOR:TEAM_BLUE_COLOR,redKills:room.teamKills.red,blueKills:room.teamKills.blue,tied};
   } else {
-    if (pList.length>0) {
-      const top=pList.reduce((a,b)=>b.kills>a.kills?b:a,pList[0]);
+    // Only real players can "win" the round announcement
+    const real=pList.filter(p=>!p.isBot);
+    const pool=real.length>0?real:pList;
+    if (pool.length>0) {
+      const top=pool.reduce((a,b)=>b.kills>a.kills?b:a,pool[0]);
       room.roundWinner={type:'player',name:top.name,color:top.color,kills:top.kills,score:top.score};
     }
   }
 
+  // Remove bots during intermission, respawn fresh ones when round starts
+  removeAllBots(room);
+
   roomIO(room).emit('intermission',{
     roundWinner:room.roundWinner,
     voteOptions:room.voteOptions.map(id=>({id,...MAPS[id],obstacles:undefined})),
-    endsAt:room.intermissionEndsAt,roundNumber:room.roundNumber,mode:room.mode,
+    endsAt:room.intermissionEndsAt, roundNumber:room.roundNumber, mode:room.mode,
   });
 }
 
 function startRound(room,mapId) {
-  room.currentMapId=mapId;room.roundNumber++;
-  room.roundState='playing';room.roundEndsAt=Date.now()+ROUND_DURATION_MS;
-  room.bullets.length=0;room.teamKills={red:0,blue:0};
+  room.currentMapId=mapId; room.roundNumber++;
+  room.roundState='playing'; room.roundEndsAt=Date.now()+ROUND_DURATION_MS;
+  room.bullets.length=0; room.teamKills={red:0,blue:0};
+
   for (const p of Object.values(room.players)) {
-    p.kills=0;p.deaths=0;p.score=0;p.hp=MAX_HP;p.alive=true;p.fireCooldown=0;
-    const sp=randomSpawnForMap(mapId,p.team);p.x=sp.x;p.y=sp.y;
+    if (p.isBot) continue; // bots are removed during intermission, re-spawned below
+    p.kills=0; p.deaths=0; p.score=0; p.hp=MAX_HP; p.alive=true; p.fireCooldown=0;
+    const sp=randomSpawnForMap(mapId,p.team); p.x=sp.x; p.y=sp.y;
   }
   room.leaderboardDirty=true;
+
   roomIO(room).emit('newRound',{
-    mapId,mapName:MAPS[mapId].name,mapEmoji:MAPS[mapId].emoji,
-    mapColor:MAPS[mapId].color,obstacles:MAPS[mapId].obstacles,
-    roundNumber:room.roundNumber,endsAt:room.roundEndsAt,
-    mode:room.mode,teamKills:room.teamKills,
+    mapId, mapName:MAPS[mapId].name, mapEmoji:MAPS[mapId].emoji,
+    mapColor:MAPS[mapId].color, obstacles:MAPS[mapId].obstacles,
+    roundNumber:room.roundNumber, endsAt:room.roundEndsAt,
+    mode:room.mode, teamKills:room.teamKills,
   });
+
+  // Spawn fresh bots for the new round (FFA only)
+  if (room.mode==='ffa') {
+    const real=realPlayerCount(room);
+    if (real < BOT_MAX_REAL) {
+      const need=Math.max(0, BOT_TARGET_TOTAL-real);
+      for (let i=0;i<need;i++) spawnBot(room);
+    }
+  }
 }
 
 // ── Socket ────────────────────────────────────────────────────────────────────
@@ -385,25 +643,33 @@ io.on('connection', socket => {
     const room=findRoom(mode);
     myRoom=room;
     const safe=((name||'').trim().replace(/[<>&"]/g,'').slice(0,16))||`Player${Math.floor(Math.random()*9999)}`;
-    const p=makePlayer(socket.id,safe,room);
+    const p=makePlayer(socket.id,safe,room,false);
     room.players[socket.id]=p;
     room.roster[socket.id]={name:p.name,color:p.color,team:p.team};
     socket.join(`room:${room.id}`);
     socket.to(`room:${room.id}`).emit('rosterAdd',{id:socket.id,name:p.name,color:p.color,team:p.team});
+
     socket.emit('init',{
-      playerId:socket.id,worldW:WORLD_W,worldH:WORLD_H,playerR:PLAYER_R,
-      mapId:room.currentMapId,mapName:MAPS[room.currentMapId].name,
-      mapEmoji:MAPS[room.currentMapId].emoji,mapColor:MAPS[room.currentMapId].color,
-      obstacles:currentObs(room),leaderboard:getLeaderboard(room),
-      roundState:room.roundState,roundEndsAt:room.roundEndsAt,roundNumber:room.roundNumber,
-      roster:room.roster,mode,myTeam:p.team,myColor:p.color,
-      teamKills:room.teamKills,tdmKillsToWin:TDM_KILLS_TO_WIN,
-      weeklyLeaderboard:getWeeklyLB(), // ← send weekly on join
+      playerId:socket.id, worldW:WORLD_W, worldH:WORLD_H, playerR:PLAYER_R,
+      mapId:room.currentMapId, mapName:MAPS[room.currentMapId].name,
+      mapEmoji:MAPS[room.currentMapId].emoji, mapColor:MAPS[room.currentMapId].color,
+      obstacles:currentObs(room), leaderboard:getLeaderboard(room),
+      roundState:room.roundState, roundEndsAt:room.roundEndsAt, roundNumber:room.roundNumber,
+      roster:room.roster, mode, myTeam:p.team, myColor:p.color,
+      teamKills:room.teamKills, tdmKillsToWin:TDM_KILLS_TO_WIN,
+      weeklyLeaderboard:getWeeklyLB(),
       ...(room.roundState==='intermission'?{
         voteOptions:room.voteOptions.map(id=>({id,...MAPS[id],obstacles:undefined})),
-        intermissionEndsAt:room.intermissionEndsAt,roundWinner:room.roundWinner,
+        intermissionEndsAt:room.intermissionEndsAt, roundWinner:room.roundWinner,
       }:{}),
     });
+
+    // If FFA and not enough players, remove one bot to make room feel right
+    if (mode==='ffa') {
+      const real=realPlayerCount(room);
+      if (real>1 && botCount(room)>0) removeBot(room);
+    }
+
     schedulePlayerCount(room);
   });
 
@@ -424,9 +690,9 @@ io.on('connection', socket => {
     const a=(typeof angle==='number'&&isFinite(angle))?angle:p.angle;
     myRoom.bullets.push({
       id:myRoom.bulletId++,
-      x:p.x+Math.cos(a)*(PLAYER_R+6),y:p.y+Math.sin(a)*(PLAYER_R+6),
-      vx:Math.cos(a)*BULLET_SPEED,vy:Math.sin(a)*BULLET_SPEED,
-      owner:socket.id,ownerTeam:p.team,ownerColor:p.color,life:BULLET_LIFE,
+      x:p.x+Math.cos(a)*(PLAYER_R+6), y:p.y+Math.sin(a)*(PLAYER_R+6),
+      vx:Math.cos(a)*BULLET_SPEED, vy:Math.sin(a)*BULLET_SPEED,
+      owner:socket.id, ownerTeam:p.team, ownerColor:p.color, life:BULLET_LIFE,
     });
   });
 
@@ -440,8 +706,8 @@ io.on('connection', socket => {
   let lastChatTime=0;
   socket.on('chat',({msg,teamOnly})=>{
     if (!myRoom) return;
-    const p=myRoom.players[socket.id];if (!p) return;
-    const now=Date.now();if (now-lastChatTime<1000) return;
+    const p=myRoom.players[socket.id]; if (!p) return;
+    const now=Date.now(); if (now-lastChatTime<1000) return;
     lastChatTime=now;
     const clean=(msg||'').toString()
       .replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))
@@ -463,7 +729,11 @@ io.on('connection', socket => {
     roomIO(myRoom).emit('playerLeft',socket.id);
     roomIO(myRoom).emit('rosterRemove',socket.id);
     schedulePlayerCount(myRoom);
-    if (Object.keys(myRoom.players).length===0) delete rooms[myRoom.mode][myRoom.id];
+    // If room is now empty of real players, clean it up
+    if (realPlayerCount(myRoom)===0) {
+      removeAllBots(myRoom);
+      delete rooms[myRoom.mode][myRoom.id];
+    }
   });
 });
 
@@ -477,33 +747,48 @@ setInterval(()=>{
       if (pList.length===0) continue;
       const obs=currentObs(room);
 
+      // Respawn
       for (const p of pList) {
-        if (!p.alive&&now>=p.respawnAt){const sp=randomSpawnForMap(room.currentMapId,p.team);p.x=sp.x;p.y=sp.y;p.hp=MAX_HP;p.alive=true;}
+        if (!p.alive&&now>=p.respawnAt) {
+          const sp=randomSpawnForMap(room.currentMapId,p.team);
+          p.x=sp.x; p.y=sp.y; p.hp=MAX_HP; p.alive=true;
+          // Re-randomise bot wander direction on respawn
+          if (p.isBot) { p.botMoveAngle=Math.random()*Math.PI*2; p.botState='wander'; }
+        }
       }
+
+      // Move real players
       for (const p of pList) {
-        if (!p.alive) continue;
+        if (!p.alive||p.isBot) continue;
         if (p.fireCooldown>0) p.fireCooldown--;
-        const k=p.keys;let dx=0,dy=0;
-        if(k.up)dy-=1;if(k.down)dy+=1;if(k.left)dx-=1;if(k.right)dx+=1;
+        const k=p.keys; let dx=0,dy=0;
+        if(k.up)dy-=1; if(k.down)dy+=1; if(k.left)dx-=1; if(k.right)dx+=1;
         if(dx||dy){const len=Math.sqrt(dx*dx+dy*dy);[p.x,p.y]=moveWithSlide(p.x,p.y,dx/len*PLAYER_SPEED,dy/len*PLAYER_SPEED,PLAYER_R,obs);}
       }
 
+      // Tick bots (movement + shooting handled inside tickBot)
+      for (const p of pList) {
+        if (p.isBot&&p.alive) tickBot(p,room);
+      }
+
+      // Bullets
       for (const b of room.bullets) {
-        b.x+=b.vx;b.y+=b.vy;b.life--;
+        b.x+=b.vx; b.y+=b.vy; b.life--;
         if(b.life<=0||b.x<0||b.x>WORLD_W||b.y<0||b.y>WORLD_H){b.life=0;continue;}
         if(overlapsObstacle(b.x,b.y,BULLET_R,obs)){b.life=0;continue;}
         for (const p of pList) {
-          if(!p.alive||p.id===b.owner)continue;
-          if(room.mode==='tdm'&&p.team===b.ownerTeam)continue;
-          const dx=p.x-b.x,dy=p.y-b.y;
-          if(dx*dx+dy*dy<(PLAYER_R+BULLET_R)**2){
-            b.life=0;p.hp-=DAMAGE;
-            io.to(p.id).emit('damaged',{hp:Math.max(0,p.hp)});
+          if(!p.alive||p.id===b.owner) continue;
+          if(room.mode==='tdm'&&p.team===b.ownerTeam) continue;
+          const dx=p.x-b.x, dy=p.y-b.y;
+          if(dx*dx+dy*dy<(PLAYER_R+BULLET_R)**2) {
+            b.life=0; p.hp-=DAMAGE;
+            // Only send damage events to real players (bots don't have sockets)
+            if (!p.isBot) io.to(p.id).emit('damaged',{hp:Math.max(0,p.hp)});
             if(p.hp<=0){
-              p.hp=0;p.alive=false;p.deaths++;p.respawnAt=now+RESPAWN_MS;
+              p.hp=0; p.alive=false; p.deaths++; p.respawnAt=now+RESPAWN_MS;
               const shooter=room.players[b.owner];
               if(shooter){
-                shooter.kills++;shooter.score+=100;
+                shooter.kills++; shooter.score+=100;
                 if(room.mode==='tdm'&&shooter.team){
                   room.teamKills[shooter.team]=(room.teamKills[shooter.team]||0)+1;
                   roomIO(room).emit('teamKills',room.teamKills);
@@ -511,21 +796,21 @@ setInterval(()=>{
                     room.leaderboardDirty=true;
                     roomIO(room).emit('kill',{killerName:shooter.name,killerColor:shooter.color,killerTeam:shooter.team,victimName:p.name,victimColor:p.color,victimTeam:p.team});
                     roomIO(room).emit('leaderboard',getLeaderboard(room));
-                    roomIO(room).emit('died',{victimId:p.id,respawnIn:RESPAWN_MS});
-                    startIntermission(room);room.bullets.length=0;break;
+                    if(!p.isBot) roomIO(room).emit('died',{victimId:p.id,respawnIn:RESPAWN_MS});
+                    startIntermission(room); room.bullets.length=0; break;
                   }
                 }
                 room.leaderboardDirty=true;
                 roomIO(room).emit('kill',{killerName:shooter.name,killerColor:shooter.color,killerTeam:shooter.team,victimName:p.name,victimColor:p.color,victimTeam:p.team});
                 roomIO(room).emit('leaderboard',getLeaderboard(room));
               }
-              if(room.roundState==='playing')roomIO(room).emit('died',{victimId:p.id,respawnIn:RESPAWN_MS});
+              if(room.roundState==='playing'&&!p.isBot) roomIO(room).emit('died',{victimId:p.id,respawnIn:RESPAWN_MS});
             }
             break;
           }
         }
       }
-      for(let i=room.bullets.length-1;i>=0;i--)if(room.bullets[i].life<=0)room.bullets.splice(i,1);
+      for(let i=room.bullets.length-1;i>=0;i--) if(room.bullets[i].life<=0) room.bullets.splice(i,1);
     }
   }
 },PHYSICS_MS);
@@ -533,33 +818,37 @@ setInterval(()=>{
 // ── Round timer ───────────────────────────────────────────────────────────────
 setInterval(()=>{
   const now=Date.now();
-  for(const mode of['ffa','tdm'])for(const room of Object.values(rooms[mode])){
-    if(room.roundState==='playing'&&now>=room.roundEndsAt)startIntermission(room);
-    else if(room.roundState==='intermission'&&now>=room.intermissionEndsAt)startRound(room,tallyVotes(room).winner);
+  for(const mode of['ffa','tdm']) for(const room of Object.values(rooms[mode])){
+    if(room.roundState==='playing'&&now>=room.roundEndsAt) startIntermission(room);
+    else if(room.roundState==='intermission'&&now>=room.intermissionEndsAt) startRound(room,tallyVotes(room).winner);
   }
 },500);
+
+// ── Bot balance — every 10 seconds ───────────────────────────────────────────
+setInterval(balanceBots, 10000);
 
 // ── Broadcast — 20/s ─────────────────────────────────────────────────────────
 setInterval(()=>{
   const now=Date.now();
-  for(const mode of['ffa','tdm'])for(const room of Object.values(rooms[mode])){
-    const pList=Object.values(room.players);if(pList.length===0)continue;
+  for(const mode of['ffa','tdm']) for(const room of Object.values(rooms[mode])){
+    const pList=Object.values(room.players); if(pList.length===0) continue;
     const allBullets=room.roundState==='playing'
       ?room.bullets.map(b=>({id:b.id,x:b.x|0,y:b.y|0,vx:b.vx,vy:b.vy,c:b.ownerColor})):[];
     const timeLeftSec=room.roundState==='playing'
       ?Math.max(0,Math.ceil((room.roundEndsAt-now)/1000))
       :Math.max(0,Math.ceil((room.intermissionEndsAt-now)/1000));
-    for(const[sid,sock]of io.sockets.sockets){
-      const me=room.players[sid];if(!me)continue;
+
+    for(const[sid,sock] of io.sockets.sockets){
+      const me=room.players[sid]; if(!me||me.isBot) continue; // never send state to bots
       const visPlayers=pList.filter(p=>inViewport(p.x,p.y,me.x,me.y)).map(p=>({
-        id:p.id,x:p.x|0,y:p.y|0,angle:Math.round(p.angle*10)/10,
-        hp:p.hp,alive:p.alive,team:p.team,
+        id:p.id, x:p.x|0, y:p.y|0, angle:Math.round(p.angle*10)/10,
+        hp:p.hp, alive:p.alive, team:p.team,
         ...(p.id===sid?{kills:p.kills,score:p.score}:{}),
       }));
       const visBullets=allBullets.filter(b=>inViewport(b.x,b.y,me.x,me.y));
       sock.emit('state',{
-        players:visPlayers,bullets:visBullets,
-        roundState:room.roundState,t:timeLeftSec,
+        players:visPlayers, bullets:visBullets,
+        roundState:room.roundState, t:timeLeftSec,
         teamKills:room.mode==='tdm'?room.teamKills:undefined,
       });
     }
@@ -567,4 +856,4 @@ setInterval(()=>{
 },BROADCAST_MS);
 
 const PORT=process.env.PORT||3000;
-server.listen(PORT,()=>console.log(`Arena.io — Weekly LB active — port ${PORT}`));
+server.listen(PORT,()=>console.log(`Arena.io — Bots active — port ${PORT}`));

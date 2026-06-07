@@ -414,133 +414,206 @@ function balanceBots() {
 }
 
 // ── Bot AI ────────────────────────────────────────────────────────────────────
+// Speed constants — bots are slower than real players so they feel beatable
+const BOT_SPEED_EASY   = PLAYER_SPEED * 0.55; // slow, easy to dodge
+const BOT_SPEED_MEDIUM = PLAYER_SPEED * 0.70; // moderate
+const BOT_SPEED_HARD   = PLAYER_SPEED * 0.82; // still slower than real player
+
+// Ideal combat distance — bot stops closing in when this close
+// Prevents bots piling on top of the player
+const BOT_IDEAL_DIST = PLAYER_R * 6; // ~90px — enough to shoot comfortably
+
+function botSpeed(bot) {
+  if (bot.botDifficulty === 'hard')   return BOT_SPEED_HARD;
+  if (bot.botDifficulty === 'medium') return BOT_SPEED_MEDIUM;
+  return BOT_SPEED_EASY;
+}
+
 function tickBot(bot, room) {
   if (!bot.alive || room.roundState !== 'playing') return;
 
-  const obs = currentObs(room);
+  const obs  = currentObs(room);
   const pList = Object.values(room.players);
+  const now  = Date.now();
 
-  // Find nearest alive enemy (ignore self and other bots when targeting)
+  // ── Find nearest alive enemy (prefer real players) ────────────────────────
   let nearest = null, nearestDist = Infinity;
   for (const p of pList) {
     if (p.id === bot.id || !p.alive) continue;
-    // Bots prefer targeting real players
-    const dx = p.x-bot.x, dy = p.y-bot.y;
-    const dist = Math.sqrt(dx*dx+dy*dy);
-    // Weight real players closer (bots target real players preferentially)
-    const weighted = dist * (p.isBot ? 1.3 : 1.0);
-    if (weighted < nearestDist) { nearestDist=weighted; nearest=p; }
+    const dx = p.x - bot.x, dy = p.y - bot.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const weighted = dist * (p.isBot ? 1.4 : 1.0); // prefer real players
+    if (weighted < nearestDist) { nearestDist = weighted; nearest = p; }
+  }
+  // Use real distance for logic, not weighted
+  const realDist = nearest ? Math.sqrt((nearest.x-bot.x)**2 + (nearest.y-bot.y)**2) : Infinity;
+
+  // ── Separation: push away from nearby bots so they don't pile up ──────────
+  let sepX = 0, sepY = 0;
+  for (const p of pList) {
+    if (!p.isBot || p.id === bot.id || !p.alive) continue;
+    const dx = bot.x - p.x, dy = bot.y - p.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < PLAYER_R * 4 && dist > 0) {
+      // Push away proportional to how close they are
+      sepX += (dx / dist) * (PLAYER_R * 4 - dist) * 0.3;
+      sepY += (dy / dist) * (PLAYER_R * 4 - dist) * 0.3;
+    }
   }
 
-  // ── State machine ───────────────────────────────────────────────────────────
+  // ── State machine ─────────────────────────────────────────────────────────
   if (bot.botState === 'wander') {
-    if (nearest && nearestDist < BOT_CHASE_RANGE) bot.botState = 'chase';
-    else if (bot.hp < MAX_HP * 0.3) bot.botState = 'evade';
+    if (nearest && realDist < BOT_CHASE_RANGE) bot.botState = 'chase';
+    if (bot.hp < MAX_HP * 0.25)               bot.botState = 'evade';
   } else if (bot.botState === 'chase') {
-    if (!nearest || nearestDist > BOT_CHASE_RANGE * 1.2) bot.botState = 'wander';
-    else if (bot.hp < MAX_HP * 0.3) bot.botState = 'evade';
+    if (!nearest || realDist > BOT_CHASE_RANGE * 1.3) bot.botState = 'wander';
+    if (bot.hp < MAX_HP * 0.25)                        bot.botState = 'evade';
   } else if (bot.botState === 'evade') {
-    if (bot.hp > MAX_HP * 0.6) bot.botState = nearest && nearestDist < BOT_CHASE_RANGE ? 'chase' : 'wander';
+    if (bot.hp > MAX_HP * 0.65) {
+      bot.botState = (nearest && realDist < BOT_CHASE_RANGE) ? 'chase' : 'wander';
+    }
   }
 
-  // ── Movement ────────────────────────────────────────────────────────────────
-  let moveAngle = bot.botMoveAngle;
+  // ── Calculate desired movement direction ──────────────────────────────────
+  let moveX = 0, moveY = 0;
 
   if (bot.botState === 'chase' && nearest) {
-    moveAngle = Math.atan2(nearest.y-bot.y, nearest.x-bot.x);
-    bot.botMoveAngle = moveAngle;
+    const toX = nearest.x - bot.x, toY = nearest.y - bot.y;
+    const len = Math.sqrt(toX*toX + toY*toY) || 1;
+
+    if (realDist > BOT_IDEAL_DIST + 10) {
+      // Too far — move toward enemy
+      moveX = toX / len;
+      moveY = toY / len;
+    } else if (realDist < BOT_IDEAL_DIST - 10) {
+      // Too close — back off so we don't clip through them
+      moveX = -(toX / len);
+      moveY = -(toY / len);
+    } else {
+      // At ideal distance — strafe sideways to stay unpredictable
+      // Perpendicular to enemy direction
+      bot.botWanderTicks++;
+      const strafeDir = Math.sin(bot.botWanderTicks * 0.04) > 0 ? 1 : -1;
+      moveX = (-toY / len) * strafeDir;
+      moveY = (toX  / len) * strafeDir;
+    }
+    bot.botMoveAngle = Math.atan2(moveY, moveX);
+
   } else if (bot.botState === 'evade' && nearest) {
-    // Run away — opposite direction from nearest enemy
-    moveAngle = Math.atan2(bot.y-nearest.y, bot.x-nearest.x);
-    // Add slight wobble so evade isn't a straight line
-    moveAngle += (Math.random()-0.5) * 0.5;
-    bot.botMoveAngle = moveAngle;
+    // Run away — pick direction away from enemy, biased toward map center
+    const awayX = bot.x - nearest.x, awayY = bot.y - nearest.y;
+    const len = Math.sqrt(awayX*awayX + awayY*awayY) || 1;
+    // Pull slightly toward map center to avoid running into corners
+    const toCX = WORLD_W/2 - bot.x, toCY = WORLD_H/2 - bot.y;
+    const cLen = Math.sqrt(toCX*toCX + toCY*toCY) || 1;
+    moveX = (awayX/len) * 0.75 + (toCX/cLen) * 0.25;
+    moveY = (awayY/len) * 0.75 + (toCY/cLen) * 0.25;
+    const mLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
+    moveX /= mLen; moveY /= mLen;
+    bot.botMoveAngle = Math.atan2(moveY, moveX);
+
   } else {
-    // Wander — change direction periodically
+    // Wander — smooth direction changes so motion looks natural
     bot.botWanderTicks++;
     if (bot.botWanderTicks > BOT_WANDER_CHANGE) {
-      bot.botMoveAngle = Math.random() * Math.PI * 2;
+      // Pick a new direction biased toward map center if near edges
+      const edgeBias = 0.3;
+      const toCX = WORLD_W/2 - bot.x, toCY = WORLD_H/2 - bot.y;
+      const cLen = Math.sqrt(toCX*toCX + toCY*toCY) || 1;
+      const rAngle = Math.random() * Math.PI * 2;
+      const biasX  = (toCX/cLen) * edgeBias + Math.cos(rAngle) * (1-edgeBias);
+      const biasY  = (toCY/cLen) * edgeBias + Math.sin(rAngle) * (1-edgeBias);
+      bot.botMoveAngle = Math.atan2(biasY, biasX);
       bot.botWanderTicks = 0;
     }
-    moveAngle = bot.botMoveAngle;
+    moveX = Math.cos(bot.botMoveAngle);
+    moveY = Math.sin(bot.botMoveAngle);
   }
 
-  // Apply movement
-  const dx = Math.cos(moveAngle) * PLAYER_SPEED;
-  const dy = Math.sin(moveAngle) * PLAYER_SPEED;
-  const prevX = bot.x, prevY = bot.y;
-  [bot.x, bot.y] = moveWithSlide(bot.x, bot.y, dx, dy, PLAYER_R, obs);
+  // Add separation force
+  moveX += sepX * 0.08;
+  moveY += sepY * 0.08;
 
-  // Stuck detection — if position barely changed, rotate and try new direction
+  // Normalise
+  const mLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
+  moveX /= mLen; moveY /= mLen;
+
+  // ── Apply movement ────────────────────────────────────────────────────────
+  const spd  = botSpeed(bot);
+  const prevX = bot.x, prevY = bot.y;
+  [bot.x, bot.y] = moveWithSlide(bot.x, bot.y, moveX*spd, moveY*spd, PLAYER_R, obs);
+
+  // ── Stuck detection — much more aggressive escape ─────────────────────────
   const moved = Math.abs(bot.x-prevX) + Math.abs(bot.y-prevY);
-  if (moved < 0.1) {
+  if (moved < 0.5) { // higher threshold — catches near-stuck too
     bot.botStuckTicks++;
     if (bot.botStuckTicks > BOT_STUCK_TICKS) {
-      // Turn by 45-135 degrees
-      bot.botMoveAngle += (Math.PI/4) + Math.random()*(Math.PI/2);
+      // Large random turn — 90° to 270° so we always clear corners
+      bot.botMoveAngle += Math.PI * (0.5 + Math.random());
       bot.botStuckTicks = 0;
-      bot.botWanderTicks = 0;
+      bot.botWanderTicks = BOT_WANDER_CHANGE; // force new wander direction next tick
+      bot.botState = 'wander'; // reset to wander so we don't chase straight back into wall
     }
   } else {
-    bot.botStuckTicks = 0;
+    bot.botStuckTicks = Math.max(0, bot.botStuckTicks - 2); // decay when moving fine
   }
 
-  // ── Aiming & shooting ───────────────────────────────────────────────────────
-  if (nearest && nearestDist < BOT_SHOOT_RANGE) {
-    // Aim at enemy with accuracy based on difficulty
-    let spread = 0;
-    let fireChance = 0;
-    let lead = false;
+  // ── World boundary avoidance — turn inward when near edges ───────────────
+  const margin = 120;
+  if (bot.x < margin || bot.x > WORLD_W-margin || bot.y < margin || bot.y > WORLD_H-margin) {
+    // Point toward centre
+    bot.botMoveAngle = Math.atan2(WORLD_H/2 - bot.y, WORLD_W/2 - bot.x);
+    bot.botWanderTicks = 0;
+  }
+
+  // ── Aim & shoot ────────────────────────────────────────────────────────────
+  if (nearest && realDist < BOT_SHOOT_RANGE) {
+    let spread = 0, fireChance = 0, lead = false;
 
     if (bot.botDifficulty === 'easy') {
-      spread = (Math.random()-0.5) * 0.7;  // ±40 degrees roughly
-      fireChance = 0.4;
+      spread = (Math.random()-0.5) * 0.8;  // wide — misses a lot
+      fireChance = 0.35;
     } else if (bot.botDifficulty === 'medium') {
-      spread = (Math.random()-0.5) * 0.3;  // ±17 degrees
-      fireChance = 0.65;
+      spread = (Math.random()-0.5) * 0.35;
+      fireChance = 0.55;
       lead = true;
     } else {
-      spread = (Math.random()-0.5) * 0.1;  // ±6 degrees
-      fireChance = 0.85;
+      spread = (Math.random()-0.5) * 0.15;
+      fireChance = 0.75;
       lead = true;
     }
 
     let aimX = nearest.x, aimY = nearest.y;
-    // Lead target — aim slightly ahead of moving enemy
-    if (lead) {
-      const travelTime = nearestDist / BULLET_SPEED;
-      // Estimate next position based on enemy's direction
-      aimX += (nearest.x - (nearest.lastX||nearest.x)) * travelTime * 0.5;
-      aimY += (nearest.y - (nearest.lastY||nearest.y)) * travelTime * 0.5;
+    if (lead && nearest.lastX !== undefined) {
+      const travelTime = realDist / (BULLET_SPEED * 60); // seconds
+      aimX += (nearest.x - nearest.lastX) * travelTime * 60 * 0.6;
+      aimY += (nearest.y - nearest.lastY) * travelTime * 60 * 0.6;
     }
     nearest.lastX = nearest.x;
     nearest.lastY = nearest.y;
 
-    bot.angle = Math.atan2(aimY-bot.y, aimX-bot.x) + spread;
+    bot.angle = Math.atan2(aimY - bot.y, aimX - bot.x) + spread;
 
-    // Shoot
     if (bot.fireCooldown <= 0 && Math.random() < fireChance && room.bullets.length < MAX_BULLETS) {
       const a = bot.angle;
       room.bullets.push({
         id: room.bulletId++,
-        x: bot.x + Math.cos(a)*(PLAYER_R+6),
-        y: bot.y + Math.sin(a)*(PLAYER_R+6),
+        x:  bot.x + Math.cos(a)*(PLAYER_R+6),
+        y:  bot.y + Math.sin(a)*(PLAYER_R+6),
         vx: Math.cos(a)*BULLET_SPEED,
         vy: Math.sin(a)*BULLET_SPEED,
         owner: bot.id, ownerTeam: bot.team, ownerColor: bot.color,
         life: BULLET_LIFE,
       });
-      bot.fireCooldown = FIRE_COOLDOWN;
+      bot.fireCooldown = FIRE_COOLDOWN + Math.floor(Math.random()*8); // slight randomness in fire rate
     }
   } else {
-    // Face direction of travel when not shooting
-    bot.angle = moveAngle;
+    bot.angle = bot.botMoveAngle;
   }
 
   if (bot.fireCooldown > 0) bot.fireCooldown--;
 
-  // ── Random chat messages ────────────────────────────────────────────────────
-  const now = Date.now();
+  // ── Occasional chat ────────────────────────────────────────────────────────
   if (now >= bot.botNextChatAt) {
     const msg = BOT_CHAT_MSGS[Math.floor(Math.random()*BOT_CHAT_MSGS.length)];
     roomIO(room).emit('chat', { id:bot.id, name:bot.name, color:bot.color, msg, teamOnly:false, team:bot.team });

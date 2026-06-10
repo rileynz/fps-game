@@ -88,6 +88,9 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 #pb-fps-dot{background:#2ecc71}#pb-fps-val{color:#2ecc71}
 #pb-ping-dot{background:#2ecc71}#pb-ping-val{color:#2ecc71}
 #pb-online-dot{background:#9b59b6}#pb-online-val{color:#9b59b6}
+#mute-btn{pointer-events:all;cursor:pointer;background:transparent;border:none;font-size:12px;padding:0 2px;opacity:.7;line-height:1;touch-action:auto;user-select:none}
+#mute-btn:hover,#mute-btn:active{opacity:1}
+#mute-btn.muted{opacity:.45}
 
 /* round timer */
 #round-bar{position:absolute;top:44px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none}
@@ -241,6 +244,8 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
   <div class="pb-item"><div class="pb-dot" id="pb-ping-dot"></div><span id="pb-ping-val">-- ms</span></div>
   <div class="pb-sep"></div>
   <div class="pb-item"><div class="pb-dot" id="pb-online-dot"></div><span id="pb-online-val">0</span></div>
+  <div class="pb-sep"></div>
+  <button id="mute-btn" type="button" onclick="SoundFX.toggleMute()" title="Mute">🔊</button>
 </div>
 
 <div id="hud">
@@ -362,6 +367,108 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 <script>
 'use strict';
 
+// ── Sound FX (Web Audio API) ───────────────────────────────────────────────────
+const SoundFX=(()=>{
+  let ctx=null,noiseBuf=null;
+  let muted=localStorage.getItem('arena_muted')==='1';
+  function getCtx(){
+    if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();
+    return ctx;
+  }
+  function getNoise(dur){
+    const c=getCtx(),len=Math.ceil(c.sampleRate*Math.max(dur,.1));
+    if(!noiseBuf||noiseBuf.length<len){
+      noiseBuf=c.createBuffer(1,len,c.sampleRate);
+      const d=noiseBuf.getChannelData(0);
+      for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+    }
+    const src=c.createBufferSource();src.buffer=noiseBuf;return src;
+  }
+  function env(gain,t,peak,attack,decay,sustain,release){
+    gain.gain.setValueAtTime(.001,t);
+    gain.gain.exponentialRampToValueAtTime(Math.max(peak,.001),t+attack);
+    gain.gain.exponentialRampToValueAtTime(Math.max(sustain*peak,.001),t+attack+decay);
+    gain.gain.exponentialRampToValueAtTime(.001,t+attack+decay+release);
+  }
+  function tone(freq,type,start,dur,vol,opts={}){
+    const c=getCtx(),osc=c.createOscillator(),gain=c.createGain();
+    osc.type=type;osc.frequency.setValueAtTime(freq,start);
+    if(opts.slide)osc.frequency.exponentialRampToValueAtTime(Math.max(opts.slide,40),start+dur);
+    env(gain,start,vol,opts.attack||.005,opts.decay||.02,opts.sustain||.3,dur);
+    osc.connect(gain).connect(c.destination);osc.start(start);osc.stop(start+dur+.05);
+  }
+  const recipes={
+    uiClick(){tone(880,'square',getCtx().currentTime,.06,.08,{decay:.03,sustain:.1});},
+    gameStart(){
+      const t=getCtx().currentTime;
+      tone(440,'square',t,.12,.12,{slide:660,decay:.04});
+      tone(660,'square',t+.1,.15,.12,{slide:880,decay:.05});
+      tone(880,'sawtooth',t+.22,.2,.08,{decay:.08});
+    },
+    shoot(){
+      const c=getCtx(),t=c.currentTime,noise=getNoise(.08),filt=c.createBiquadFilter(),gain=c.createGain();
+      filt.type='bandpass';filt.frequency.value=1200;filt.Q.value=.8;
+      noise.connect(filt).connect(gain).connect(c.destination);
+      env(gain,t,.25,.002,.02,.15,.05);noise.start(t);noise.stop(t+.1);
+      tone(220,'square',t,.05,.06,{slide:80,decay:.02});
+    },
+    hit(){
+      const c=getCtx(),t=c.currentTime;
+      tone(120,'sine',t,.1,.2,{slide:60,decay:.05});
+      const noise=getNoise(.06),gain=c.createGain();
+      noise.connect(gain).connect(c.destination);
+      env(gain,t,.15,.003,.03,.05,.03);noise.start(t);noise.stop(t+.08);
+    },
+    death(){
+      const t=getCtx().currentTime;
+      tone(400,'sawtooth',t,.4,.15,{slide:80,decay:.1,sustain:.2});
+      tone(200,'sine',t+.15,.35,.12,{slide:50,decay:.15});
+    },
+    kill(){
+      const t=getCtx().currentTime;
+      tone(523,'square',t,.1,.1,{decay:.04});
+      tone(659,'square',t+.08,.1,.1,{decay:.04});
+      tone(784,'square',t+.16,.18,.1,{decay:.08});
+    },
+    roundStart(){
+      const t=getCtx().currentTime;
+      tone(392,'square',t,.1,.1,{decay:.04});
+      tone(523,'square',t+.1,.1,.1,{decay:.04});
+      tone(659,'square',t+.2,.2,.1,{decay:.1});
+    },
+    roundEnd(){tone(440,'sine',getCtx().currentTime,.25,.12,{slide:220,decay:.1,sustain:.3});},
+    respawn(){
+      const t=getCtx().currentTime;
+      tone(300,'sine',t,.12,.1,{slide:600,decay:.05});
+      tone(600,'sine',t+.08,.1,.08,{slide:800,decay:.05});
+    }
+  };
+  function updateMuteUI(){
+    const btn=document.getElementById('mute-btn');
+    if(!btn)return;
+    btn.textContent=muted?'🔇':'🔊';
+    btn.title=muted?'Unmute':'Mute';
+    btn.classList.toggle('muted',muted);
+  }
+  return{
+    init(){getCtx().resume().catch(()=>{});updateMuteUI();return this;},
+    ready(){updateMuteUI();},
+    play(name){
+      if(muted||!recipes[name])return;
+      try{if(ctx&&ctx.state==='suspended')ctx.resume();recipes[name]();}catch(e){}
+    },
+    toggleMute(){
+      muted=!muted;
+      localStorage.setItem('arena_muted',muted?'1':'0');
+      updateMuteUI();
+      if(!muted)this.play('uiClick');
+    },
+    isReady(){return!!ctx;}
+  };
+})();
+window.SoundFX=SoundFX;
+SoundFX.ready();
+
 const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
@@ -420,6 +527,7 @@ window.setMode=function(mode){
   selectedMode=mode;
   document.getElementById('btn-ffa').classList.toggle('active',mode==='ffa');
   document.getElementById('btn-tdm').classList.toggle('active',mode==='tdm');
+  if(SoundFX.isReady())SoundFX.play('uiClick');
 };
 
 // ── Prediction ─────────────────────────────────────────────────────────────────
@@ -523,6 +631,8 @@ canvas.addEventListener('mouseup',e=>{if(e.button===0)shootDown=false;});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
 function joinGame(){
+  SoundFX.init();
+  SoundFX.play('gameStart');
   const name=document.getElementById('name-input').value.trim()||`Player${Math.floor(Math.random()*9999)}`;
   local.name=name;
   socket.emit('join',{name,mode:selectedMode});
@@ -625,6 +735,7 @@ function setupTeamHUD(mode){
 
 // ── Intermission ───────────────────────────────────────────────────────────────
 function showIntermission({roundWinner,voteOptions,endsAt,roundNumber:rn,mode:rMode}){
+  SoundFX.play('roundEnd');
   document.getElementById('intermission').style.display='flex';
   document.getElementById('hud').style.display='none';
   if(isMobile)document.getElementById('mobile-controls').style.display='none';
@@ -671,6 +782,7 @@ function showIntermission({roundWinner,voteOptions,endsAt,roundNumber:rn,mode:rM
 }
 function castVote(mapId,voteOptions){
   myVote=mapId;socket.emit('vote',{mapId});
+  SoundFX.play('uiClick');
   document.querySelectorAll('.map-card').forEach(c=>{
     const v=c.dataset.mapId===mapId;
     c.classList.toggle('voted',v);
@@ -872,6 +984,7 @@ function handleShoot(ts){
   const want=(isMobile?mobileShoot:shootDown)&&local.alive&&roundState==='playing';
   if(want&&ts-lastShootTime>=SHOOT_COOLDOWN_MS){
     socket.emit('shoot',{angle:local.angle});
+    SoundFX.play('shoot');
     lastShootTime=ts;
   }
 }
@@ -1023,7 +1136,7 @@ socket.on('state',state=>{
   const r=roster[myId]||{};
   local.color=r.color||me.color||local.color;
   local.name=r.name||me.name||local.name;
-  if(me.alive&&!local.alive){local.x=me.x;local.y=me.y;local.alive=true;local.hp=me.hp;}
+  if(me.alive&&!local.alive){local.x=me.x;local.y=me.y;local.alive=true;local.hp=me.hp;SoundFX.play('respawn');}
 });
 
 socket.on('teamKills',tk=>{teamKills=tk;updateTeamBar();});
@@ -1041,6 +1154,7 @@ socket.on('newRound',({mapId,mapName,mapEmoji,mapColor,obstacles:obs,roundNumber
   hideIntermission();
   const MAP_DESCS={arena:'Classic symmetric arena',desert:'Open terrain, long range',castle:'Rooms and corridors',maze:'Tight paths, close quarters',industrial:'Cover-heavy, mid range'};
   showMapBanner(mapName,mapEmoji,MAP_DESCS[mapId]||'',rn,mapColor);
+  SoundFX.play('roundStart');
   document.getElementById('dead').style.display='none';clearInterval(deadTimer);
 });
 
@@ -1048,11 +1162,12 @@ socket.on('playerCount',n=>{
   document.getElementById('menu-online').textContent=n+' player'+(n!==1?'s':'')+' online';
   document.getElementById('pb-online-val').textContent=n;
 });
-socket.on('damaged',({hp})=>{flashRed();local.hp=hp;prevHp=-1;});
-socket.on('died',({victimId,respawnIn})=>{if(victimId===myId){local.alive=false;showDead(respawnIn);}});
+socket.on('damaged',({hp})=>{flashRed();local.hp=hp;prevHp=-1;SoundFX.play('hit');});
+socket.on('died',({victimId,respawnIn})=>{if(victimId===myId){local.alive=false;showDead(respawnIn);SoundFX.play('death');}});
 socket.on('kill',({killerName,killerColor,killerTeam,victimName,victimColor,victimTeam})=>{
   const isMe=killerName===local.name;
   const isMyTeam=gameMode==='tdm'&&killerTeam===myTeam;
+  if(isMe)SoundFX.play('kill');
   addKill(
     `<span style="color:${killerColor}">${killerName}</span>`+
     `<span style="color:rgba(255,255,255,.35)"> eliminated </span>`+
@@ -1089,9 +1204,11 @@ socket.on('disconnect',()=>{
 function openWeekly(){
   document.getElementById('weekly-panel').style.display='flex';
   renderWeeklyLB();
+  if(SoundFX.isReady())SoundFX.play('uiClick');
 }
 function closeWeekly(){
   document.getElementById('weekly-panel').style.display='none';
+  if(SoundFX.isReady())SoundFX.play('uiClick');
 }
 function showWeeklyTab(tab){
   weeklyTab=tab;

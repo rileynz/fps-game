@@ -137,9 +137,9 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 .lb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,0.88)}
 .lb-pts{color:#f39c12;font-size:10px;font-weight:700;flex-shrink:0}
 
-/* kill feed */
-#kf{position:absolute;top:44px;left:10px;display:flex;flex-direction:column;gap:4px;pointer-events:none;max-width:min(260px,42vw)}
-.kf-row{background:rgba(8,8,18,.78);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:600;white-space:nowrap;animation:kfout 3.5s forwards;border:1px solid rgba(255,255,255,.07);backdrop-filter:blur(8px)}
+/* kill feed — left column, capped so it never reaches minimap/chat */
+#kf{position:absolute;top:118px;left:16px;bottom:210px;display:flex;flex-direction:column;justify-content:flex-start;gap:4px;pointer-events:none;max-width:min(260px,32vw);overflow:hidden;z-index:15}
+.kf-row{background:rgba(8,8,18,.85);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;animation:kfout 3.5s forwards;border:1px solid rgba(255,255,255,.07);backdrop-filter:blur(8px);flex-shrink:0}
 @keyframes kfout{0%,65%{opacity:1}100%{opacity:0}}
 
 /* bottom left */
@@ -158,7 +158,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 #hp-bar{height:100%;border-radius:9px;background:linear-gradient(90deg,#27ae60,#2ecc71);transition:width .12s,background .2s;width:100%;box-shadow:0 0 12px rgba(46,204,113,.35)}
 
 /* minimap */
-#mm-wrap{position:absolute;bottom:20px;right:16px;display:flex;flex-direction:column;align-items:center;gap:2px}
+#mm-wrap{position:absolute;bottom:20px;right:16px;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:10}
 #mm{border-radius:8px;border:1.5px solid rgba(255,255,255,0.12);display:block}
 #mm-lbl{font-size:8px;color:rgba(255,255,255,0.2);letter-spacing:2px;text-transform:uppercase}
 
@@ -174,7 +174,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
 #team-banner p{font-size:12px;color:rgba(255,255,255,.5);margin-top:4px;letter-spacing:1px}
 
 /* chat */
-#chat-wrap{position:absolute;bottom:120px;left:16px;display:flex;flex-direction:column;gap:0;width:260px;pointer-events:none}
+#chat-wrap{position:absolute;bottom:120px;left:16px;display:flex;flex-direction:column;gap:0;width:260px;pointer-events:none;z-index:12}
 #chat-log{display:flex;flex-direction:column;gap:3px;max-height:130px;overflow:hidden;justify-content:flex-end}
 .chat-msg{background:rgba(0,0,0,.62);border-radius:8px;padding:4px 10px;font-size:11px;line-height:1.45;border:1px solid rgba(255,255,255,.05);animation:chatfade 8s forwards;word-break:break-word}
 .chat-msg.team-msg{border-left:2px solid currentColor}
@@ -199,7 +199,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
   #hud-bl{bottom:calc(min(150px,20vmin) + 30px + env(safe-area-inset-bottom,0px));left:calc(16px + env(safe-area-inset-left,0px))}
   #mm-wrap{display:none}#chat-wrap{display:none}
   #lb{max-width:130px;top:40px}#round-bar{top:36px}#perf-bar{top:6px}
-  #kf{top:36px;left:calc(10px + env(safe-area-inset-left,0px));max-width:38vw}
+  #kf{top:80px;left:calc(10px + env(safe-area-inset-left,0px));bottom:auto;max-height:min(120px,28vh);max-width:38vw}
   #team-bar-wrap{top:80px}
 }
 
@@ -257,7 +257,7 @@ canvas{display:block;position:fixed;top:0;left:0;touch-action:none}
   </div>
 </div>
 
-<canvas id="c"></canvas>
+<canvas id="c" tabindex="-1"></canvas>
 
 <div id="landscape-hint">
   <div class="lh-icon">📱</div>
@@ -1029,14 +1029,22 @@ function handleShoot(ts){
 }
 
 // ── Chat ───────────────────────────────────────────────────────────────────────
+function canUseChat(){
+  if(!inGame) return false;
+  if(window.innerWidth<=768) return false;
+  if(document.getElementById('intermission').style.display==='flex') return false;
+  return true;
+}
 function openChat(teamOnly){
-  if(!inGame||isMobile)return;
+  if(!canUseChat()) return;
   chatOpen=true;chatTeamOnly=!!teamOnly&&gameMode==='tdm';
   document.getElementById('chat-input-wrap').style.display='block';
   document.getElementById('chat-open-hint').style.display='none';
   document.getElementById('chat-mode-label').textContent=
     chatTeamOnly?'Team Chat ('+myTeam?.toUpperCase()+')':'All Chat';
-  document.getElementById('chat-input').focus();
+  const inp=document.getElementById('chat-input');
+  inp.value='';
+  requestAnimationFrame(()=>inp.focus());
 }
 function closeChat(){
   chatOpen=false;chatTeamOnly=false;
@@ -1047,16 +1055,23 @@ function closeChat(){
 }
 function sendChat(){
   const inp=document.getElementById('chat-input'),msg=inp.value.trim();
-  if(msg)socket.emit('chat',{msg,teamOnly:chatTeamOnly});
+  if(!msg) return;
+  socket.emit('chat',{msg,teamOnly:chatTeamOnly});
   closeChat();
 }
 document.addEventListener('keydown',e=>{
-  if(!inGame||isMobile||document.getElementById('intermission').style.display!=='none')return;
-  if(e.key==='Enter'){e.preventDefault();chatOpen?sendChat():openChat(false);}
-  if((e.key==='t'||e.key==='T')&&!chatOpen&&gameMode==='tdm'){e.preventDefault();openChat(true);}
-  if(e.key==='Escape'&&chatOpen){e.preventDefault();closeChat();}
-},true);
-document.getElementById('chat-input').addEventListener('keydown',e=>e.stopPropagation());
+  if(!canUseChat()) return;
+  if(e.target.id==='chat-input') return;
+  if(e.repeat&&(e.key==='Enter'||e.key==='t'||e.key==='T')) return;
+  if(e.key==='Enter'){e.preventDefault();openChat(false);}
+  else if((e.key==='t'||e.key==='T')&&!chatOpen&&gameMode==='tdm'){e.preventDefault();openChat(true);}
+  else if(e.key==='Escape'&&chatOpen){e.preventDefault();closeChat();}
+});
+document.getElementById('chat-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();e.stopPropagation();sendChat();return;}
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeChat();return;}
+  e.stopPropagation();
+});
 function addChatMsg(name,color,msg,teamOnly,team){
   const log=document.getElementById('chat-log');
   const el=document.createElement('div');

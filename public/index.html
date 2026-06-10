@@ -1078,7 +1078,7 @@ socket.on('rosterRemove',id=>{delete roster[id];});
 socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderboard,
   mapId,mapName,mapEmoji,mapColor,roundState:rs,roundEndsAt,roundNumber:rn,
   voteOptions,intermissionEndsAt,roundWinner,roster:initRoster,
-  mode,myTeam:mt,myColor:mc,teamKills:tk,tdmKillsToWin:tw})=>{
+  mode,myTeam:mt,myColor:mc,teamKills:tk,tdmKillsToWin:tw,weeklyLeaderboard:wl})=>{
   myId=playerId;worldW=ww;worldH=wh;obstacles=obs;playerR=pr;
   currentMapId=mapId;currentMapName=mapName;currentMapEmoji=mapEmoji;
   roundState=rs;roundNumber=rn;gameMode=mode;
@@ -1095,7 +1095,7 @@ socket.on('init',({playerId,worldW:ww,worldH:wh,obstacles:obs,playerR:pr,leaderb
   setupTeamHUD(mode);
   if(mode==='tdm'&&mt){showTeamBanner(mt);}
   if(rs==='intermission'&&voteOptions)showIntermission({roundWinner,voteOptions,endsAt:intermissionEndsAt,roundNumber:rn,mode});
-  if(weeklyLeaderboard){weeklyData=weeklyLeaderboard;}
+  if(wl)weeklyData=wl;
 });
 
 socket.on('state',state=>{

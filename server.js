@@ -39,10 +39,12 @@ const FFA_COLORS = [
 // ── Bot constants ─────────────────────────────────────────────────────────────
 const BOT_TARGET_TOTAL  = 6;   // aim for this many total (real + bots) when room is quiet
 const BOT_MAX_REAL      = 4;   // stop adding bots once this many real players exist
-const BOT_CHASE_RANGE   = 700; // px — bot starts chasing when enemy within this range
-const BOT_SHOOT_RANGE   = 450; // px — bot shoots when enemy within this range
+const BOT_CHASE_RANGE   = 520; // px — shorter aggro range, less "hunt across the map"
+const BOT_SHOOT_RANGE   = 360; // px — must be closer to shoot
+const BOT_TARGET_LOCK_MS = 2800; // stick to one target instead of instant snap-switching
 const BOT_STUCK_TICKS   = 90;  // ticks before bot decides it's stuck and turns
 const BOT_WANDER_CHANGE = 180; // ticks between random direction changes while wandering
+const BOT_AWARE_FOV     = Math.PI * 1.1; // ~200° — not 360° wallhacks
 const BOT_CHAT_MIN_MS   = 30000; // min ms between bot chat messages
 const BOT_CHAT_MAX_MS   = 120000;
 const BOT_CHAT_MSGS = ['gg','nice','lets go','👍','💀','ez','good game','🔥','no way','lol'];
@@ -302,7 +304,20 @@ function makePlayer(id,name,room,isBot=false) {
     botLastX:sp.x, botLastY:sp.y,
     botWanderTicks:0,
     botNextChatAt:Date.now()+BOT_CHAT_MIN_MS+Math.random()*(BOT_CHAT_MAX_MS-BOT_CHAT_MIN_MS),
-    botDifficulty:'easy',   // set dynamically based on real player count
+    botDifficulty:'easy',
+    botAimAngle:Math.random()*Math.PI*2,
+    botTargetId:null,
+    botTargetLockUntil:0,
+    botHesitateUntil:0,
+    botFlankSide:Math.random()>0.5?1:-1,
+    botChaseBreakAt:0,
+    botPersonality:isBot?BOT_PERSONALITIES[Math.floor(Math.random()*BOT_PERSONALITIES.length)]:null,
+    botLastHp:MAX_HP,
+    botDodgeUntil:0,
+    botDodgeAngle:0,
+    botCoverPoint:null,
+    botPeekAt:0,
+    botPeekUntil:0,
   };
 }
 
@@ -356,8 +371,8 @@ function botCount(room) {
 
 function botDifficultyForRoom(room) {
   const real = realPlayerCount(room);
-  if (real <= 1) return 'easy';
-  if (real <= 3) return 'medium';
+  if (real <= 2) return 'easy';
+  if (real <= 5) return 'medium';
   return 'hard';
 }
 
@@ -424,19 +439,123 @@ function balanceBots() {
 }
 
 // ── Bot AI ────────────────────────────────────────────────────────────────────
-// Speed constants — bots are slower than real players so they feel beatable
-const BOT_SPEED_EASY   = PLAYER_SPEED * 0.55; // slow, easy to dodge
-const BOT_SPEED_MEDIUM = PLAYER_SPEED * 0.70; // moderate
-const BOT_SPEED_HARD   = PLAYER_SPEED * 0.82; // still slower than real player
+const BOT_SPEED_EASY   = PLAYER_SPEED * 0.42;
+const BOT_SPEED_MEDIUM = PLAYER_SPEED * 0.55;
+const BOT_SPEED_HARD   = PLAYER_SPEED * 0.65;
+const BOT_IDEAL_DIST   = PLAYER_R * 7;
+const BOT_AIM_TURN     = { easy:0.06, medium:0.10, hard:0.14 };
+const BOT_PERSONALITIES = ['aggressive','camper','rusher'];
+const BOT_PERSONALITY = {
+  aggressive:{ speed:1.05, chase:1.12, fire:1.1,  ideal:5.5, evade:0.28 },
+  camper:    { speed:0.9,  chase:0.72, fire:1.0,  ideal:9.5, evade:0.48 },
+  rusher:    { speed:1.1,  chase:1.18, fire:0.9,  ideal:4.2, evade:0.22 },
+};
 
-// Ideal combat distance — bot stops closing in when this close
-// Prevents bots piling on top of the player
-const BOT_IDEAL_DIST = PLAYER_R * 6; // ~90px — enough to shoot comfortably
+function botTraits(bot){ return BOT_PERSONALITY[bot.botPersonality]||BOT_PERSONALITY.aggressive; }
 
 function botSpeed(bot) {
   if (bot.botDifficulty === 'hard')   return BOT_SPEED_HARD;
   if (bot.botDifficulty === 'medium') return BOT_SPEED_MEDIUM;
   return BOT_SPEED_EASY;
+}
+
+function angleDiff(a,b){
+  let d=b-a;
+  while(d>Math.PI)d-=Math.PI*2;
+  while(d<-Math.PI)d+=Math.PI*2;
+  return d;
+}
+
+function lerpAngle(from,to,maxStep){
+  return from+clamp(angleDiff(from,to),-maxStep,maxStep);
+}
+
+function hasLineOfSight(ax,ay,bx,by,obs){
+  const dist=Math.hypot(bx-ax,by-ay);
+  const steps=Math.max(2,Math.ceil(dist/24));
+  for(let i=1;i<steps;i++){
+    const t=i/steps,x=ax+(bx-ax)*t,y=ay+(by-ay)*t;
+    if(overlapsObstacle(x,y,PLAYER_R*0.5,obs)) return false;
+  }
+  return true;
+}
+
+function findCoverPoint(bot,threat,obs){
+  if(!threat) return null;
+  let best=null,bestScore=Infinity;
+  for(const o of obs){
+    const pts=[
+      {x:o.x-PLAYER_R*3,y:o.y+o.h*0.5},
+      {x:o.x+o.w+PLAYER_R*3,y:o.y+o.h*0.5},
+      {x:o.x+o.w*0.5,y:o.y-PLAYER_R*3},
+      {x:o.x+o.w*0.5,y:o.y+o.h+PLAYER_R*3},
+    ];
+    for(const c of pts){
+      if(c.x<PLAYER_R||c.y<PLAYER_R||c.x>WORLD_W-PLAYER_R||c.y>WORLD_H-PLAYER_R) continue;
+      if(overlapsObstacle(c.x,c.y,PLAYER_R,obs)) continue;
+      if(hasLineOfSight(threat.x,threat.y,c.x,c.y,obs)) continue;
+      const dBot=Math.hypot(c.x-bot.x,c.y-bot.y);
+      const canPeek=hasLineOfSight(c.x,c.y,threat.x,threat.y,obs);
+      const score=dBot-(canPeek?70:0);
+      if(score<bestScore){bestScore=score;best=c;}
+    }
+  }
+  return best;
+}
+
+function botCanSee(bot,target,obs){
+  const dx=target.x-bot.x, dy=target.y-bot.y;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  if(dist<PLAYER_R*8) return hasLineOfSight(bot.x,bot.y,target.x,target.y,obs);
+  const look=bot.botState==='chase'||bot.botState==='peek'?bot.botMoveAngle:bot.botAimAngle;
+  const toTarget=Math.atan2(dy,dx);
+  return Math.abs(angleDiff(look,toTarget))<BOT_AWARE_FOV/2
+    &&hasLineOfSight(bot.x,bot.y,target.x,target.y,obs);
+}
+
+function pickBotTarget(bot,room,pList){
+  const now=Date.now();
+  const locked=bot.botTargetId&&room.players[bot.botTargetId];
+  if(locked&&locked.alive){
+    if(room.mode==='tdm'&&locked.team===bot.team){bot.botTargetId=null;}
+    else{
+      const d=Math.hypot(locked.x-bot.x,locked.y-bot.y);
+      if(d<BOT_CHASE_RANGE*1.35&&now<bot.botTargetLockUntil) return locked;
+    }
+  }
+  let best=null,bestScore=Infinity;
+  for(const p of pList){
+    if(p.id===bot.id||!p.alive) continue;
+    if(room.mode==='tdm'&&p.team===bot.team) continue;
+    const dx=p.x-bot.x, dy=p.y-bot.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>BOT_CHASE_RANGE) continue;
+    if(dist>BOT_CHASE_RANGE*0.55&&Math.random()<0.2) continue;
+    const weighted=dist*(p.isBot?1.5:1.0);
+    if(weighted<bestScore){bestScore=weighted;best=p;}
+  }
+  if(best){
+    bot.botTargetId=best.id;
+    bot.botTargetLockUntil=now+BOT_TARGET_LOCK_MS+Math.random()*1200;
+    if(Math.random()<0.35) bot.botFlankSide*=-1;
+  } else bot.botTargetId=null;
+  return best;
+}
+
+function resetBotAI(bot){
+  bot.botMoveAngle=Math.random()*Math.PI*2;
+  bot.botAimAngle=bot.botMoveAngle;
+  bot.botState='wander';
+  bot.botTargetId=null;
+  bot.botTargetLockUntil=0;
+  bot.botHesitateUntil=0;
+  bot.botChaseBreakAt=0;
+  bot.botFlankSide=Math.random()>0.5?1:-1;
+  bot.botLastHp=bot.hp;
+  bot.botDodgeUntil=0;
+  bot.botCoverPoint=null;
+  bot.botPeekAt=0;
+  bot.botPeekUntil=0;
 }
 
 function tickBot(bot, room) {
@@ -446,17 +565,25 @@ function tickBot(bot, room) {
   const pList = Object.values(room.players);
   const now  = Date.now();
 
-  // ── Find nearest alive enemy (prefer real players) ────────────────────────
-  let nearest = null, nearestDist = Infinity;
-  for (const p of pList) {
-    if (p.id === bot.id || !p.alive) continue;
-    const dx = p.x - bot.x, dy = p.y - bot.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const weighted = dist * (p.isBot ? 1.4 : 1.0); // prefer real players
-    if (weighted < nearestDist) { nearestDist = weighted; nearest = p; }
+  const traits=botTraits(bot);
+  const idealDist=PLAYER_R*traits.ideal;
+  const chaseRange=BOT_CHASE_RANGE*traits.chase;
+  const evadeThreshold=MAX_HP*traits.evade;
+
+  const target=pickBotTarget(bot,room,pList);
+  const realDist=target?Math.hypot(target.x-bot.x,target.y-bot.y):Infinity;
+  const seesTarget=target?botCanSee(bot,target,obs):false;
+
+  if(bot.hp<bot.botLastHp){
+    bot.botDodgeUntil=now+280+Math.random()*320;
+    bot.botDodgeAngle=bot.botMoveAngle+(Math.random()>0.5?1:-1)*Math.PI*0.55;
+    if(bot.hp<MAX_HP*0.55||bot.botPersonality==='camper'){
+      bot.botState='cover';
+      bot.botCoverPoint=findCoverPoint(bot,target,obs);
+      bot.botPeekAt=now+500+Math.random()*900;
+    }
   }
-  // Use real distance for logic, not weighted
-  const realDist = nearest ? Math.sqrt((nearest.x-bot.x)**2 + (nearest.y-bot.y)**2) : Infinity;
+  bot.botLastHp=bot.hp;
 
   // ── Separation: push away from nearby bots so they don't pile up ──────────
   let sepX = 0, sepY = 0;
@@ -472,57 +599,87 @@ function tickBot(bot, room) {
   }
 
   // ── State machine ─────────────────────────────────────────────────────────
-  if (bot.botState === 'wander') {
-    if (nearest && realDist < BOT_CHASE_RANGE) bot.botState = 'chase';
-    if (bot.hp < MAX_HP * 0.25)               bot.botState = 'evade';
-  } else if (bot.botState === 'chase') {
-    if (!nearest || realDist > BOT_CHASE_RANGE * 1.3) bot.botState = 'wander';
-    if (bot.hp < MAX_HP * 0.25)                        bot.botState = 'evade';
-  } else if (bot.botState === 'evade') {
-    if (bot.hp > MAX_HP * 0.65) {
-      bot.botState = (nearest && realDist < BOT_CHASE_RANGE) ? 'chase' : 'wander';
+  if(bot.botState==='wander'){
+    if(bot.botPersonality==='camper'&&target&&realDist<chaseRange*0.9){
+      bot.botState='cover'; bot.botCoverPoint=findCoverPoint(bot,target,obs); bot.botPeekAt=now+700+Math.random()*800;
+    } else if(target&&seesTarget&&realDist<chaseRange*0.85){
+      bot.botState='chase'; bot.botChaseBreakAt=0;
+    }
+    if(bot.hp<evadeThreshold) bot.botState='evade';
+  } else if(bot.botState==='chase'){
+    if(!target||realDist>chaseRange*1.25) bot.botState='wander';
+    if(bot.hp<evadeThreshold) bot.botState='evade';
+    if(bot.botPersonality==='camper'&&bot.hp<MAX_HP*0.7){ bot.botState='cover'; bot.botCoverPoint=findCoverPoint(bot,target,obs); }
+    if(now>=bot.botChaseBreakAt){ bot.botState='wander'; bot.botChaseBreakAt=now+2200+Math.random()*2800; }
+    else if(bot.botChaseBreakAt===0) bot.botChaseBreakAt=now+1800+Math.random()*2200;
+  } else if(bot.botState==='cover'){
+    if(!target||realDist>chaseRange*1.3){ bot.botState='wander'; bot.botCoverPoint=null; }
+    else if(now>=bot.botPeekAt&&seesTarget){ bot.botState='peek'; bot.botPeekUntil=now+320+Math.random()*280; }
+    else if(bot.hp>MAX_HP*0.8&&bot.botPersonality!=='camper'&&Math.random()<0.01) bot.botState='chase';
+  } else if(bot.botState==='peek'){
+    if(now>=bot.botPeekUntil){ bot.botState='cover'; bot.botPeekAt=now+900+Math.random()*1100; }
+    if(bot.hp<evadeThreshold) bot.botState='evade';
+  } else if(bot.botState==='evade'){
+    if(bot.hp>MAX_HP*0.58){
+      bot.botState=(target&&seesTarget&&realDist<chaseRange*0.75&&bot.botPersonality!=='camper')?'chase':'wander';
+      bot.botChaseBreakAt=0;
     }
   }
 
   // ── Calculate desired movement direction ──────────────────────────────────
   let moveX = 0, moveY = 0;
+  const hesitating=now<bot.botHesitateUntil;
+  const dodging=now<bot.botDodgeUntil;
 
-  if (bot.botState === 'chase' && nearest) {
-    const toX = nearest.x - bot.x, toY = nearest.y - bot.y;
-    const len = Math.sqrt(toX*toX + toY*toY) || 1;
-
-    if (realDist > BOT_IDEAL_DIST + 10) {
-      // Too far — move toward enemy
-      moveX = toX / len;
-      moveY = toY / len;
-    } else if (realDist < BOT_IDEAL_DIST - 10) {
-      // Too close — back off so we don't clip through them
-      moveX = -(toX / len);
-      moveY = -(toY / len);
-    } else {
-      // At ideal distance — strafe sideways to stay unpredictable
-      // Perpendicular to enemy direction
-      bot.botWanderTicks++;
-      const strafeDir = Math.sin(bot.botWanderTicks * 0.04) > 0 ? 1 : -1;
-      moveX = (-toY / len) * strafeDir;
-      moveY = (toX  / len) * strafeDir;
+  if(dodging){
+    moveX=Math.cos(bot.botDodgeAngle);
+    moveY=Math.sin(bot.botDodgeAngle);
+    bot.botMoveAngle=bot.botDodgeAngle;
+  } else if(!hesitating&&bot.botState==='cover'){
+    if(bot.botCoverPoint){
+      const dx=bot.botCoverPoint.x-bot.x, dy=bot.botCoverPoint.y-bot.y;
+      const d=Math.hypot(dx,dy)||1;
+      if(d>36){ moveX=dx/d; moveY=dy/d; bot.botMoveAngle=Math.atan2(moveY,moveX); }
     }
-    bot.botMoveAngle = Math.atan2(moveY, moveX);
+  } else if(!hesitating&&bot.botState==='peek'&&target){
+    const toX=target.x-bot.x, toY=target.y-bot.y;
+    const len=Math.hypot(toX,toY)||1;
+    moveX=toX/len*0.65; moveY=toY/len*0.65;
+    bot.botMoveAngle=Math.atan2(moveY,moveX);
+  } else if(!hesitating&&bot.botState==='chase'&&target){
+    const toX=target.x-bot.x, toY=target.y-bot.y;
+    const len=Math.sqrt(toX*toX+toY*toY)||1;
+    const directX=toX/len, directY=toY/len;
+    const flankX=Math.cos(Math.atan2(toY,toX)+bot.botFlankSide*0.65);
+    const flankY=Math.sin(Math.atan2(toY,toX)+bot.botFlankSide*0.65);
 
-  } else if (bot.botState === 'evade' && nearest) {
-    // Run away — pick direction away from enemy, biased toward map center
-    const awayX = bot.x - nearest.x, awayY = bot.y - nearest.y;
-    const len = Math.sqrt(awayX*awayX + awayY*awayY) || 1;
-    // Pull slightly toward map center to avoid running into corners
-    const toCX = WORLD_W/2 - bot.x, toCY = WORLD_H/2 - bot.y;
-    const cLen = Math.sqrt(toCX*toCX + toCY*toCY) || 1;
-    moveX = (awayX/len) * 0.75 + (toCX/cLen) * 0.25;
-    moveY = (awayY/len) * 0.75 + (toCY/cLen) * 0.25;
-    const mLen = Math.sqrt(moveX*moveX + moveY*moveY) || 1;
-    moveX /= mLen; moveY /= mLen;
-    bot.botMoveAngle = Math.atan2(moveY, moveX);
+    if(realDist>idealDist+20){
+      const rush=bot.botPersonality==='rusher'?0.65:0.45;
+      moveX=directX*rush+flankX*(1-rush);
+      moveY=directY*rush+flankY*(1-rush);
+    } else if(realDist<idealDist-15){
+      moveX=-directX*0.8;
+      moveY=-directY*0.8;
+    } else {
+      bot.botWanderTicks++;
+      const strafeDir=Math.sin(bot.botWanderTicks*0.035)>0?1:-1;
+      moveX=(-toY/len)*strafeDir*0.85+flankX*0.15;
+      moveY=(toX/len)*strafeDir*0.85+flankY*0.15;
+    }
+    bot.botMoveAngle=Math.atan2(moveY,moveX);
 
-  } else {
+  } else if(!hesitating&&bot.botState==='evade'&&target){
+    const awayX=bot.x-target.x, awayY=bot.y-target.y;
+    const len=Math.sqrt(awayX*awayX+awayY*awayY)||1;
+    const toCX=WORLD_W/2-bot.x, toCY=WORLD_H/2-bot.y;
+    const cLen=Math.sqrt(toCX*toCX+toCY*toCY)||1;
+    moveX=(awayX/len)*0.8+(toCX/cLen)*0.2;
+    moveY=(awayY/len)*0.8+(toCY/cLen)*0.2;
+    const mLen=Math.sqrt(moveX*moveX+moveY*moveY)||1;
+    moveX/=mLen; moveY/=mLen;
+    bot.botMoveAngle=Math.atan2(moveY,moveX);
+
+  } else if(!hesitating){
     // Wander — smooth direction changes so motion looks natural
     bot.botWanderTicks++;
     if (bot.botWanderTicks > BOT_WANDER_CHANGE) {
@@ -549,7 +706,7 @@ function tickBot(bot, room) {
   moveX /= mLen; moveY /= mLen;
 
   // ── Apply movement ────────────────────────────────────────────────────────
-  const spd  = botSpeed(bot);
+  const spd=botSpeed(bot)*traits.speed*(hesitating?0.22:dodging?1.15:1);
   const prevX = bot.x, prevY = bot.y;
   [bot.x, bot.y] = moveWithSlide(bot.x, bot.y, moveX*spd, moveY*spd, PLAYER_R, obs);
 
@@ -576,49 +733,59 @@ function tickBot(bot, room) {
     bot.botWanderTicks = 0;
   }
 
-  // ── Aim & shoot ────────────────────────────────────────────────────────────
-  if (nearest && realDist < BOT_SHOOT_RANGE) {
-    let spread = 0, fireChance = 0, lead = false;
+  // ── Aim & shoot (smoothed aim — no instant lock-on) ───────────────────────
+  const turnRate=BOT_AIM_TURN[bot.botDifficulty]||BOT_AIM_TURN.easy;
+  if(target&&seesTarget&&realDist<BOT_SHOOT_RANGE){
+    let spread=0, fireChance=0, lead=false;
 
-    if (bot.botDifficulty === 'easy') {
-      spread = (Math.random()-0.5) * 0.8;  // wide — misses a lot
-      fireChance = 0.35;
-    } else if (bot.botDifficulty === 'medium') {
-      spread = (Math.random()-0.5) * 0.35;
-      fireChance = 0.55;
-      lead = true;
+    if(bot.botDifficulty==='easy'){
+      spread=(Math.random()-0.5)*1.1;
+      fireChance=0.22;
+    } else if(bot.botDifficulty==='medium'){
+      spread=(Math.random()-0.5)*0.55;
+      fireChance=0.38;
+      lead=Math.random()<0.45;
     } else {
-      spread = (Math.random()-0.5) * 0.15;
-      fireChance = 0.75;
-      lead = true;
+      spread=(Math.random()-0.5)*0.28;
+      fireChance=0.52;
+      lead=Math.random()<0.65;
     }
 
-    let aimX = nearest.x, aimY = nearest.y;
-    if (lead && nearest.lastX !== undefined) {
-      const travelTime = realDist / (BULLET_SPEED * 60); // seconds
-      aimX += (nearest.x - nearest.lastX) * travelTime * 60 * 0.6;
-      aimY += (nearest.y - nearest.lastY) * travelTime * 60 * 0.6;
+    let aimX=target.x, aimY=target.y;
+    if(lead&&target.lastX!==undefined){
+      const travelTime=realDist/(BULLET_SPEED*60);
+      aimX+=(target.x-target.lastX)*travelTime*60*0.35;
+      aimY+=(target.y-target.lastY)*travelTime*60*0.35;
     }
-    nearest.lastX = nearest.x;
-    nearest.lastY = nearest.y;
+    target.lastX=target.x;
+    target.lastY=target.y;
 
-    bot.angle = Math.atan2(aimY - bot.y, aimX - bot.x) + spread;
+    const desiredAim=Math.atan2(aimY-bot.y,aimX-bot.x)+spread;
+    bot.botAimAngle=lerpAngle(bot.botAimAngle,desiredAim,turnRate);
+    bot.angle=bot.botAimAngle;
 
-    if (bot.fireCooldown <= 0 && Math.random() < fireChance && room.bullets.length < MAX_BULLETS) {
-      const a = bot.angle;
-      room.bullets.push({
-        id: room.bulletId++,
-        x:  bot.x + Math.cos(a)*(PLAYER_R+6),
-        y:  bot.y + Math.sin(a)*(PLAYER_R+6),
-        vx: Math.cos(a)*BULLET_SPEED,
-        vy: Math.sin(a)*BULLET_SPEED,
-        owner: bot.id, ownerTeam: bot.team, ownerColor: bot.color,
-        life: BULLET_LIFE,
-      });
-      bot.fireCooldown = FIRE_COOLDOWN + Math.floor(Math.random()*8); // slight randomness in fire rate
+    const aimErr=Math.abs(angleDiff(bot.botAimAngle,Math.atan2(target.y-bot.y,target.x-bot.x)));
+    fireChance*=traits.fire;
+    if(bot.botState==='peek') fireChance*=1.25;
+    if(bot.fireCooldown<=0&&aimErr<0.45&&Math.random()<fireChance&&room.bullets.length<MAX_BULLETS){
+      if(Math.random()<0.08) bot.botHesitateUntil=now+120+Math.random()*280;
+      else{
+        const a=bot.angle;
+        room.bullets.push({
+          id:room.bulletId++,
+          x:bot.x+Math.cos(a)*(PLAYER_R+6),
+          y:bot.y+Math.sin(a)*(PLAYER_R+6),
+          vx:Math.cos(a)*BULLET_SPEED,
+          vy:Math.sin(a)*BULLET_SPEED,
+          owner:bot.id, ownerTeam:bot.team, ownerColor:bot.color,
+          life:BULLET_LIFE,
+        });
+        bot.fireCooldown=FIRE_COOLDOWN+Math.floor(Math.random()*14)+4;
+      }
     }
   } else {
-    bot.angle = bot.botMoveAngle;
+    bot.botAimAngle=lerpAngle(bot.botAimAngle,bot.botMoveAngle,turnRate*0.8);
+    bot.angle=bot.botAimAngle;
   }
 
   if (bot.fireCooldown > 0) bot.fireCooldown--;
@@ -836,7 +1003,7 @@ setInterval(()=>{
           const sp=randomSpawnForMap(room.currentMapId,p.team);
           p.x=sp.x; p.y=sp.y; p.hp=MAX_HP; p.alive=true;
           // Re-randomise bot wander direction on respawn
-          if (p.isBot) { p.botMoveAngle=Math.random()*Math.PI*2; p.botState='wander'; }
+          if (p.isBot) resetBotAI(p);
         }
       }
 

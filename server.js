@@ -19,6 +19,7 @@ const BULLET_SPEED = 10, BULLET_LIFE = 180;
 const PLAYER_SPEED = 4.0;
 const RESPAWN_MS = 3000;
 const DAMAGE = 25, MAX_HP = 100;
+const KILL_HEAL = 25; // HP restored on elimination (change to 50 for a stronger reward)
 const FIRE_COOLDOWN = 10, MAX_BULLETS = 300;
 const LEADERBOARD_SIZE = 10;
 const WEEKLY_LB_SIZE = 10;
@@ -234,6 +235,15 @@ function findRoom(mode) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function clamp(v,lo,hi){ return v<lo?lo:v>hi?hi:v; }
+
+function healOnKill(shooter) {
+  if (!shooter || !shooter.alive) return;
+  const before = shooter.hp;
+  shooter.hp = Math.min(MAX_HP, shooter.hp + KILL_HEAL);
+  if (shooter.hp > before && !shooter.isBot) {
+    io.to(shooter.id).emit('killHeal', { hp: shooter.hp, amount: shooter.hp - before });
+  }
+}
 
 function overlapsObstacle(x,y,r,obs) {
   for (const o of obs) {
@@ -862,6 +872,7 @@ setInterval(()=>{
               const shooter=room.players[b.owner];
               if(shooter){
                 shooter.kills++; shooter.score+=100;
+                healOnKill(shooter);
                 if(room.mode==='tdm'&&shooter.team){
                   room.teamKills[shooter.team]=(room.teamKills[shooter.team]||0)+1;
                   roomIO(room).emit('teamKills',room.teamKills);

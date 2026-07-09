@@ -7,7 +7,20 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors:{origin:'*'}, pingTimeout:10000, pingInterval:5000 });
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  maxAge: '7d',
+  setHeaders: (res, filePath) => {
+    const fileName = path.basename(filePath);
+    if (fileName === 'index.html' || fileName === 'sw.js' || fileName === 'manifest.json' || fileName === 'offline.html') {
+      res.setHeader('Cache-Control', 'no-cache');
+      return;
+    }
+    if (filePath.includes(`${path.sep}icons${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+}));
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const WORLD_W = 2400, WORLD_H = 2400;

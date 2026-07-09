@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="Arena.io">
 <meta name="theme-color" content="#0f0f23">
 <link rel="manifest" href="/manifest.json">
+<link rel="preload" href="/socket.io/socket.io.js" as="script">
 <link rel="apple-touch-icon" href="/icons/icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1213,6 +1214,7 @@ socket.on('newRound',({mapId,mapName,mapEmoji,mapColor,obstacles:obs,roundNumber
 });
 
 socket.on('playerCount',n=>{
+  if(!navigator.onLine) return;
   document.getElementById('menu-online').textContent=n+' player'+(n!==1?'s':'')+' online';
   document.getElementById('pb-online-val').textContent=n;
 });
@@ -1370,6 +1372,28 @@ function setupMobileControls(){
   canvas.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 }
 setupMobileControls();
+
+function updateNetworkHint(){
+  const statusEl=document.getElementById('menu-online');
+  if(!statusEl) return;
+  if(!navigator.onLine){
+    statusEl.textContent='Offline mode ready';
+    return;
+  }
+  if(statusEl.textContent==='Offline mode ready') statusEl.textContent='— players online';
+}
+window.addEventListener('online',updateNetworkHint);
+window.addEventListener('offline',updateNetworkHint);
+updateNetworkHint();
+
+if('serviceWorker' in navigator){
+  const registerSW=()=>navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  if('requestIdleCallback' in window){
+    requestIdleCallback(registerSW,{timeout:2000});
+  }else{
+    window.addEventListener('load',registerSW,{once:true});
+  }
+}
 </script>
 </body>
 </html>

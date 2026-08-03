@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena IO — Analytics</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="/chart.umd.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#131824; --panel2:#171d2b; --border:#232b3d;
+    --text:#e8ecf4; --sub:#8a92a6; --accent:#3498db; --accent2:#2ecc71;
+    --warn:#f39c12; --danger:#e74c3c; --purple:#9b59b6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+  }
+  .gate{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px;
+  }
+  .gate input{
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:12px 14px; border-radius:8px; font-size:15px; width:280px; outline:none;
+  }
+  .gate input:focus{border-color:var(--accent);}
+  .gate button, .toolbar button{
+    background:var(--accent); border:none; color:#fff; padding:12px 20px;
+    border-radius:8px; font-size:15px; cursor:pointer; font-weight:600;
+  }
+  .gate button:hover, .toolbar button:hover{opacity:.9;}
+  .gate .err{color:var(--danger); font-size:13px; min-height:16px;}
+  #dash{display:none; max-width:1200px; margin:0 auto; padding:28px 20px 60px;}
+  header{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px;}
+  h1{font-size:20px; margin:0; font-weight:700;}
+  h1 .dot{display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--accent2); margin-right:8px; box-shadow:0 0 8px var(--accent2);}
+  .toolbar{display:flex; gap:10px; align-items:center;}
+  .toolbar select{
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:9px 12px; border-radius:8px; font-size:13px;
+  }
+  .source-tag{font-size:11px; color:var(--sub); padding:4px 8px; border:1px solid var(--border); border-radius:6px;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:22px;}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px;}
+  .card .label{font-size:12px; color:var(--sub); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;}
+  .card .value{font-size:26px; font-weight:700;}
+  .card .sub{font-size:12px; color:var(--sub); margin-top:4px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr;}}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px;}
+  .panel h2{font-size:14px; margin:0 0 14px; color:var(--sub); font-weight:600; text-transform:uppercase; letter-spacing:.03em;}
+  .panel canvas{max-height:260px;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th,td{text-align:left; padding:8px 6px; border-bottom:1px solid var(--border);}
+  th{color:var(--sub); font-weight:600; font-size:11px; text-transform:uppercase;}
+  .loading{color:var(--sub); text-align:center; padding:40px;}
+  .empty{color:var(--sub); text-align:center; padding:30px; font-size:13px;}
+  .analytics-status{
+    display:none; margin-bottom:16px; padding:11px 13px; border-radius:8px;
+    border:1px solid rgba(231,76,60,.35); background:rgba(231,76,60,.09);
+    color:#ff9d94; font-size:13px;
+  }
+  .chart-empty{display:none; min-height:180px; align-items:center; justify-content:center;}
+  .view-tabs{display:flex; gap:8px; margin-bottom:18px; overflow-x:auto; padding-bottom:3px;}
+  .view-tab{
+    border:1px solid var(--border); background:var(--panel); color:var(--sub);
+    padding:9px 14px; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap;
+  }
+  .view-tab.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .dashboard-view{display:none;}
+  #overviewView{display:block;}
+  .table-wrap{overflow-x:auto;}
+  .table-wrap table{min-width:640px;}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:99px;background:var(--panel2);font-size:11px;}
+  .pill-dot{width:7px;height:7px;border-radius:50%;background:var(--sub);}
+  .pill-dot.good{background:var(--accent2);box-shadow:0 0 7px rgba(46,204,113,.6);}
+  .pill-dot.warn{background:var(--warn);}
+  .progress{height:11px;border-radius:99px;background:#090c12;overflow:hidden;border:1px solid var(--border);margin:9px 0 5px;}
+  .progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--warn),var(--danger));border-radius:99px;transition:width .25s ease;}
+  .panel-note{color:var(--sub);font-size:11px;line-height:1.45;margin-top:8px;}
+  .section-gap{margin-bottom:16px;}
+  .status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+  .status-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2);padding:11px 12px;border-radius:8px;font-size:12px;}
+  .announcement-layout{display:grid; grid-template-columns:minmax(280px,380px) 1fr; gap:16px;}
+  @media(max-width:820px){.announcement-layout{grid-template-columns:1fr;}}
+  .field{display:flex; flex-direction:column; gap:6px; margin-bottom:12px;}
+  .field label{font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.04em;}
+  .field input,.field textarea,.field select{
+    width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:10px 12px; font:inherit; outline:none;
+  }
+  .field textarea{min-height:150px; resize:vertical; line-height:1.5;}
+  .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent);}
+  .check-row{display:flex; gap:18px; margin:4px 0 16px; color:var(--sub); font-size:13px;}
+  .check-row label{display:flex; gap:7px; align-items:center;}
+  .editor-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .editor-actions button,.announcement-actions button{
+    border:0; border-radius:7px; padding:9px 12px; cursor:pointer; font-weight:600;
+    color:#fff; background:var(--accent);
+  }
+  .editor-actions .secondary,.announcement-actions .secondary{background:#3b4355;}
+  .announcement-actions .danger{background:var(--danger);}
+  #announcementStatus{font-size:12px; min-height:18px; margin-top:10px; color:var(--sub);}
+  #announcementList{display:flex; flex-direction:column; gap:10px;}
+  .announcement-item{background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:14px;}
+  .announcement-item-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .announcement-title{font-weight:700; margin-bottom:5px;}
+  .announcement-meta{font-size:11px; color:var(--sub); text-transform:uppercase;}
+  .announcement-body{white-space:pre-wrap; line-height:1.45; color:#cbd2df; font-size:13px; margin:12px 0;}
+  .announcement-actions{display:flex; gap:7px; flex-wrap:wrap;}
+  .status-pill{font-size:10px; padding:3px 7px; border-radius:99px; white-space:nowrap;}
+  .status-pill.live{background:rgba(46,204,113,.15); color:#66e69a;}
+  .status-pill.draft{background:rgba(243,156,18,.14); color:#f5b942;}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h1><span class="dot"></span>Arena IO Analytics</h1>
+  <input id="keyInput" type="password" placeholder="Admin key" autocomplete="off">
+  <button onclick="tryKey()">Enter</button>
+  <div class="err" id="gateErr"></div>
+</div>
+
+<div id="dash">
+  <header>
+    <h1><span class="dot"></span>Arena IO Dashboard</h1>
+    <div class="toolbar">
+      <span class="source-tag" id="sourceTag"></span>
+      <select id="rangeSel" onchange="load()">
+        <option value="7">Last 7 days</option>
+        <option value="14" selected>Last 14 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button onclick="load()">Refresh</button>
+    </div>
+  </header>
+
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="overview" onclick="showView('overview')">Overview</button>
+    <button class="view-tab" data-view="players" onclick="showView('players')">Players</button>
+    <button class="view-tab" data-view="gameplay" onclick="showView('gameplay')">Gameplay</button>
+    <button class="view-tab" data-view="revenue" onclick="showView('revenue')">Revenue</button>
+    <button class="view-tab" data-view="performance" onclick="showView('performance')">Performance</button>
+    <button class="view-tab" data-view="announcements" onclick="showView('announcements')">Announcements</button>
+  </div>
+
+  <section class="dashboard-view" id="overviewView">
+  <div class="analytics-status" id="analyticsStatus"></div>
+  <div class="cards" id="overviewCards"></div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Daily Active Players &amp; Sessions</h2>
+      <canvas id="dauChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Total Playtime Per Day</h2>
+      <canvas id="playtimeChart"></canvas>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Live Rooms</h2>
+    <div class="table-wrap">
+      <table id="liveRoomsTable">
+        <thead><tr><th>Room</th><th>Mode</th><th>Players</th><th>Bots</th><th>Map</th><th>Round</th><th>Status</th><th>Time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty" id="liveRoomsEmpty" style="display:none;">No matches are open right now.</div>
+  </div>
+  </section>
+
+  <section class="dashboard-view" id="playersView">
+  <div class="cards" id="playersCards"></div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>New vs Returning Players</h2>
+      <canvas id="retentionChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Players by Platform</h2>
+      <canvas id="platformChart"></canvas>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>Join Activity by UTC Hour</h2>
+      <canvas id="activityChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>How Sessions End</h2>
+      <div class="table-wrap"><table id="sessionReasonsTable"><thead><tr><th>Reason</th><th>Sessions</th></tr></thead><tbody></tbody></table></div>
+      <div class="empty" id="sessionReasonsEmpty" style="display:none;">No completed sessions in this range.</div>
+    </div>
+  </div>
+  </section>
+
+  <section class="dashboard-view" id="gameplayView">
+  <div class="cards" id="gameplayCards"></div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>Matches by Mode (Per Day)</h2>
+      <canvas id="modeChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Map Popularity</h2>
+      <canvas id="mapChart"></canvas>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Mode Performance</h2>
+    <div class="table-wrap"><table id="modeStatsTable"><thead><tr><th>Mode</th><th>Joins</th><th>Completed Matches</th><th>Average Players</th><th>Average Duration</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  </section>
+
+  <section class="dashboard-view" id="revenueView">
+  <div class="cards" id="revenueCards"></div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>Store Revenue Per Day</h2>
+      <canvas id="revenueChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Shop Activity</h2>
+      <canvas id="shopChart"></canvas>
+    </div>
+  </div>
+  <div class="panel section-gap">
+    <h2>Purchase Funnel</h2>
+    <canvas id="funnelChart"></canvas>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <h2>Top Purchased Shop Items</h2>
+    <table id="cosmeticsTable">
+      <thead><tr><th>Category</th><th>Item</th><th>Purchases</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="cosmeticsEmpty" style="display:none;">No shop purchases yet in this range.</div>
+  </div>
+  </section>
+
+  <section class="dashboard-view" id="performanceView">
+    <div class="cards" id="performanceCards"></div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Estimated Monthly Bandwidth</h2>
+        <div class="progress"><div class="progress-fill" id="bandwidthFill"></div></div>
+        <div id="bandwidthCopy" class="panel-note"></div>
+        <div class="panel-note">This estimate uses the actual Socket.IO payloads sent since the current deployment. Render remains the source of truth for billable usage.</div>
+      </div>
+      <div class="panel">
+        <h2>Service Health</h2>
+        <div class="status-grid" id="healthGrid"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Client Performance by Platform</h2>
+        <div class="table-wrap"><table id="clientPerformanceTable"><thead><tr><th>Platform</th><th>Samples</th><th>Average Ping</th><th>P95 Ping</th><th>Average FPS</th></tr></thead><tbody></tbody></table></div>
+        <div class="empty" id="clientPerformanceEmpty" style="display:none;">Performance samples appear after players spend about 30 seconds in a match.</div>
+      </div>
+      <div class="panel">
+        <h2>Realtime Usage by Mode</h2>
+        <div class="table-wrap"><table id="networkModeTable"><thead><tr><th>Mode</th><th>Estimated Outbound</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-view" id="announcementsView">
+    <div class="announcement-layout">
+      <div class="panel">
+        <h2 id="announcementEditorTitle">New Announcement</h2>
+        <input id="announcementId" type="hidden">
+        <div class="field">
+          <label for="announcementTitle">Title</label>
+          <input id="announcementTitle" maxlength="80" placeholder="What changed?">
+        </div>
+        <div class="field">
+          <label for="announcementBody">Message</label>
+          <textarea id="announcementBody" maxlength="2000" placeholder="Write the announcement players will see..."></textarea>
+        </div>
+        <div class="field">
+          <label for="announcementType">Type</label>
+          <select id="announcementType">
+            <option value="news">News</option>
+            <option value="update">Update</option>
+            <option value="event">Event</option>
+            <option value="maintenance">Maintenance</option>
+          </select>
+        </div>
+        <div class="check-row">
+          <label><input id="announcementPublished" type="checkbox"> Publish now</label>
+          <label><input id="announcementPinned" type="checkbox"> Pin to top</label>
+          <label><input id="announcementImportant" type="checkbox"> Important top banner</label>
+        </div>
+        <div class="editor-actions">
+          <button onclick="saveAnnouncement()">Save Announcement</button>
+          <button class="secondary" onclick="resetAnnouncementEditor()">Clear</button>
+        </div>
+        <div id="announcementStatus"></div>
+      </div>
+
+      <div class="panel">
+        <h2>All Announcements</h2>
+        <div id="announcementList"><div class="loading">Loading announcements…</div></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+let ADMIN_KEY = sessionStorage.getItem('arena_admin_key') || '';
+let charts = {};
+let announcementItems = [];
+
+async function adminFetch(url, options = {}){
+  const headers = Object.assign({}, options.headers || {}, { 'x-admin-key': ADMIN_KEY });
+  if(options.body) headers['content-type'] = 'application/json';
+  return fetch(url, { ...options, headers });
+}
+
+function tryKey(){
+  const v = document.getElementById('keyInput').value.trim();
+  if(!v) return;
+  ADMIN_KEY = v;
+  sessionStorage.setItem('arena_admin_key', v);
+  load(true);
+}
+document.getElementById('keyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') tryKey(); });
+
+async function load(fromGate){
+  const days = document.getElementById('rangeSel').value;
+  const status=document.getElementById('analyticsStatus');
+  status.style.display='none';
+  status.textContent='';
+  try{
+    const res = await adminFetch(`/api/admin/summary?days=${days}`);
+    if(res.status===401){
+      sessionStorage.removeItem('arena_admin_key');
+      document.getElementById('gate').style.display='flex';
+      document.getElementById('dash').style.display='none';
+      document.getElementById('gateErr').textContent = ADMIN_KEY ? 'Invalid key.' : '';
+      return;
+    }
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.reason||'unknown error');
+    document.getElementById('gate').style.display='none';
+    document.getElementById('dash').style.display='block';
+    render(data);
+    loadAnnouncements();
+  }catch(e){
+    if(fromGate) document.getElementById('gateErr').textContent = 'Could not reach server: '+e.message;
+    status.textContent='Analytics could not be loaded: '+e.message;
+    status.style.display='block';
+    console.error(e);
+  }
+}
+
+function fmtMs(ms){
+  if(!ms) return '0m';
+  const mins = ms/60000;
+  if(mins < 60) return mins.toFixed(1)+'m';
+  return (mins/60).toFixed(1)+'h';
+}
+
+function fmtNumber(value, maximumFractionDigits=0){
+  return new Intl.NumberFormat(undefined,{maximumFractionDigits}).format(Number(value)||0);
+}
+
+function fmtBytes(value){
+  const bytes=Math.max(0,Number(value)||0);
+  if(bytes<1000)return Math.round(bytes)+' B';
+  if(bytes<1e6)return (bytes/1e3).toFixed(1)+' KB';
+  if(bytes<1e9)return (bytes/1e6).toFixed(1)+' MB';
+  return (bytes/1e9).toFixed(2)+' GB';
+}
+
+function fmtMoney(minor,currency){
+  const code=String(currency||'NZD').toUpperCase();
+  try{
+    return new Intl.NumberFormat(undefined,{style:'currency',currency:code}).format((Number(minor)||0)/100);
+  }catch(error){
+    return code+' '+((Number(minor)||0)/100).toFixed(2);
+  }
+}
+
+function renderCards(id,items){
+  const container=document.getElementById(id);
+  container.replaceChildren();
+  for(const item of items){
+    const card=document.createElement('div');
+    card.className='card';
+    const label=document.createElement('div');
+    label.className='label';
+    label.textContent=item.label;
+    const value=document.createElement('div');
+    value.className='value';
+    value.textContent=item.value;
+    const sub=document.createElement('div');
+    sub.className='sub';
+    sub.textContent=item.sub||'';
+    card.append(label,value,sub);
+    container.appendChild(card);
+  }
+}
+
+function renderTable(tableId,rows,emptyId){
+  const body=document.querySelector(`#${tableId} tbody`);
+  body.replaceChildren();
+  for(const values of rows){
+    const row=document.createElement('tr');
+    for(const value of values){
+      const cell=document.createElement('td');
+      cell.textContent=String(value??'');
+      row.appendChild(cell);
+    }
+    body.appendChild(row);
+  }
+  if(emptyId)document.getElementById(emptyId).style.display=rows.length?'none':'block';
+}
+
+function modeLabel(mode){
+  return ({ffa:'Free For All',tdm:'Team Deathmatch',ranked:'Ranked',lms:'Last Man Standing'})[mode]||String(mode||'Unknown');
+}
+
+function platformLabel(platform){
+  return ({
+    web:'Website',pwa:'PWA',crazygames:'CrazyGames',
+    itch:'itch.io',microsoft_store:'Microsoft Store',unknown:'Unknown',
+  })[platform]||String(platform||'Unknown');
+}
+
+const ANALYTICS_PLATFORM_ORDER=['web','pwa','microsoft_store','crazygames','itch'];
+function withPlatformSlots(items,valueKey){
+  const rows=new Map((Array.isArray(items)?items:[]).map(item=>[item.platform,item]));
+  const known=ANALYTICS_PLATFORM_ORDER.map(platform=>rows.get(platform)||{platform,[valueKey]:0});
+  const extras=[...rows.values()].filter(item=>!ANALYTICS_PLATFORM_ORDER.includes(item.platform));
+  return [...known,...extras];
+}
+
+function render(data){
+  document.getElementById('sourceTag').textContent = data.source==='mongo' ? 'live · MongoDB' : 'no DB connected · in-memory (resets on restart)';
+
+  const daily=Array.isArray(data.daily)?data.daily:[];
+  const totals = data.totals||{
+    dauToday:0,sessions:0,avgSessionMs:0,totalPlaytimeMs:0,
+    matches:0,shardsSpent:0,purchases:0,
+  };
+  const rooms=data.roomsOpen||{ffa:0,tdm:0,ranked:0,lms:0};
+  const runtime=data.runtime||{};
+  const network=runtime.network||{};
+  const performance=runtime.clientPerformance||{};
+  const accounts=data.accounts||{};
+  const commerce=data.commerce||{};
+  const liveRooms=Array.isArray(data.liveRooms)?data.liveRooms:[];
+  const platformPopularity=withPlatformSlots(data.platformPopularity,'joins');
+  const itchJoins=platformPopularity.find(item=>item.platform==='itch')?.joins||0;
+  const roomCount=(rooms.ffa||0)+(rooms.tdm||0)+(rooms.ranked||0)+(rooms.lms||0);
+
+  renderCards('overviewCards',[
+    {label:'Online Right Now',value:fmtNumber(data.onlineNow),sub:`across ${roomCount} open rooms`},
+    {label:'Peak Since Deploy',value:fmtNumber(runtime.peakOnlineSinceDeploy),sub:'highest simultaneous player count'},
+    {label:'DAU Today',value:fmtNumber(totals.dauToday),sub:'unique players joined today'},
+    {label:'Sessions',value:fmtNumber(totals.sessions),sub:`average ${fmtMs(totals.avgSessionMs)} each`},
+    {label:'Player Hours',value:((Number(totals.totalPlaytimeMs)||0)/3600000).toFixed(1),sub:'completed sessions in this range'},
+    {label:'Matches',value:fmtNumber(totals.matches),sub:'completed across enabled modes'},
+  ]);
+
+  renderCards('playersCards',[
+    {label:'Unique Players',value:fmtNumber(data.uniquePlayersRange),sub:'joined in selected range'},
+    {label:'Player Records',value:fmtNumber(accounts.playerRecords),sub:'saved names in MongoDB'},
+    {label:'Secure Accounts',value:fmtNumber(accounts.secureAccounts),sub:`${fmtNumber(accounts.pinAccounts)} accounts have a PIN`},
+    {label:'Verified Emails',value:fmtNumber(accounts.verifiedEmails),sub:`${fmtNumber(accounts.paidAccounts)} accounts have bought premium items`},
+    {label:'Day 1 Retention',value:(Number(data.retention?.day1?.percent)||0).toFixed(1)+'%',sub:`${fmtNumber(data.retention?.day1?.returned)} of ${fmtNumber(data.retention?.day1?.eligible)} eligible players`},
+    {label:'Day 7 Retention',value:(Number(data.retention?.day7?.percent)||0).toFixed(1)+'%',sub:`${fmtNumber(data.retention?.day7?.returned)} of ${fmtNumber(data.retention?.day7?.eligible)} eligible players`},
+    {label:'itch.io Joins',value:fmtNumber(itchJoins),sub:'tracked separately from website and PWA players'},
+  ]);
+
+  const modePopularity=new Map((data.modePopularity||[]).map(item=>[item.mode,item.joins]));
+  const modeStats=Array.isArray(data.modeMatchStats)?data.modeMatchStats:[];
+  const totalModeJoins=[...modePopularity.values()].reduce((sum,count)=>sum+(Number(count)||0),0);
+  renderCards('gameplayCards',[
+    {label:'Matches Played',value:fmtNumber(totals.matches),sub:'rounds completed in this range'},
+    {label:'Mode Joins',value:fmtNumber(totalModeJoins),sub:'all entries into game rooms'},
+    {label:'Most Played Mode',value:modeStats.slice().sort((a,b)=>(b.matches||0)-(a.matches||0))[0]?.matches?modeLabel(modeStats.slice().sort((a,b)=>(b.matches||0)-(a.matches||0))[0].mode):'No data',sub:'based on completed matches'},
+    {label:'Maps Played',value:fmtNumber((data.mapPopularity||[]).filter(item=>item.count).length),sub:'different maps completed'},
+    {label:'Cosmetic Purchases',value:fmtNumber(totals.cosmeticPurchases),sub:`${fmtNumber(totals.shardsSpent)} shards spent`},
+  ]);
+
+  const currencies=Array.isArray(commerce.byCurrency)?commerce.byCurrency:[];
+  const revenueCards=currencies.slice(0,3).map(currency=>({
+    label:`Net ${String(currency.currency).toUpperCase()}`,
+    value:fmtMoney(currency.netMinor,currency.currency),
+    sub:`${currency.purchases} sales · ${currency.refunds} refunds`,
+  }));
+  revenueCards.push(
+    {label:'Premium Purchases',value:fmtNumber(commerce.purchases),sub:`${fmtNumber(commerce.refunds)} refunded`},
+    {label:'Receipt Emails',value:fmtNumber(commerce.receiptEmailsSent),sub:`${fmtNumber(commerce.receiptEmailsPending)} pending or not sent`},
+    {label:'Shard Purchases',value:fmtNumber(totals.cosmeticPurchases),sub:`${fmtNumber(totals.shardsSpent)} shards spent`},
+  );
+  renderCards('revenueCards',revenueCards);
+
+  renderCards('performanceCards',[
+    {label:'Projected Bandwidth',value:fmtBytes(network.projectedMonthlyBytes),sub:`${(Number(network.projectedLimitPercent)||0).toFixed(1)}% of configured monthly limit`},
+    {label:'Per Player Hour',value:(Number(network.estimatedMbPerPlayerHour)||0).toFixed(2)+' MB',sub:'estimated realtime outbound usage'},
+    {label:'Average Ping',value:(Number(performance.averagePingMs)||0).toFixed(0)+' ms',sub:`P95 ${(Number(performance.p95PingMs)||0).toFixed(0)} ms`},
+    {label:'Average FPS',value:(Number(performance.averageFps)||0).toFixed(0),sub:`${(Number(performance.lowFpsPercent)||0).toFixed(1)}% of samples below 42 FPS`},
+    {label:'Physics P95',value:(Number(runtime.physics?.p95Ms)||0).toFixed(2)+' ms',sub:'server simulation time per tick'},
+    {label:'Event Loop Lag',value:(Number(runtime.eventLoopLagMs)||0).toFixed(0)+' ms',sub:'current server responsiveness'},
+    {label:'Queue-safe Protocol',value:fmtNumber(runtime.protocols?.binaryV4),sub:`${fmtNumber(runtime.protocols?.binaryV3)} v3 · ${fmtNumber(runtime.protocols?.compactV2)} v2 · ${fmtNumber(runtime.protocols?.legacy)} legacy`},
+  ]);
+
+  renderTable('liveRoomsTable',liveRooms.map(room=>[
+    room.id,modeLabel(room.mode),`${room.realPlayers}/${room.maxPlayers}`,
+    room.bots,room.mapId,room.roundNumber,room.state,fmtMs(room.timeLeftMs),
+  ]),'liveRoomsEmpty');
+
+  renderTable('sessionReasonsTable',(data.sessionEndReasons||[]).map(item=>[
+    String(item.reason||'unknown').replaceAll('_',' '),item.count,
+  ]),'sessionReasonsEmpty');
+
+  renderTable('modeStatsTable',modeStats.map(item=>[
+    modeLabel(item.mode),modePopularity.get(item.mode)||0,item.matches,
+    Number(item.avgPlayers||0).toFixed(1),fmtMs(item.avgDurationMs),
+  ]));
+
+  const topCosmetics=Array.isArray(data.topShopItems)
+    ?data.topShopItems:Array.isArray(data.topCosmetics)?data.topCosmetics:[];
+  renderTable('cosmeticsTable',topCosmetics.map(item=>[
+    item.category,item.name||item.id,item.count,
+  ]),'cosmeticsEmpty');
+
+  renderTable('clientPerformanceTable',withPlatformSlots(performance.platforms,'samples').map(item=>[
+    platformLabel(item.platform),item.samples,
+    Number(item.averagePingMs||0).toFixed(0)+' ms',
+    Number(item.p95PingMs||0).toFixed(0)+' ms',
+    Number(item.averageFps||0).toFixed(0),
+  ]),'clientPerformanceEmpty');
+
+  renderTable('networkModeTable',Object.entries(network.realtimeByMode||{})
+    .filter(([,bytes])=>Number(bytes)>0)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([mode,bytes])=>[modeLabel(mode),fmtBytes(bytes)]));
+
+  const bandwidthPercent=Math.max(0,Number(network.projectedLimitPercent)||0);
+  document.getElementById('bandwidthFill').style.width=Math.min(100,bandwidthPercent)+'%';
+  document.getElementById('bandwidthCopy').textContent=
+    `${fmtBytes(network.totalEstimatedBytes)} observed since deploy; `+
+    `${fmtBytes(network.projectedMonthlyBytes)} projected from current traffic `+
+    `against a ${fmtBytes(network.monthlyLimitBytes)} configured limit.`;
+
+  const healthRows=[
+    ['MongoDB',data.health?.database],
+    ['Stripe',data.health?.stripe],
+    ['Account Email',data.health?.resend],
+    ['Purchase Email',data.health?.purchaseEmail],
+  ];
+  const healthGrid=document.getElementById('healthGrid');
+  healthGrid.replaceChildren();
+  for(const [label,healthy] of healthRows){
+    const row=document.createElement('div');
+    row.className='status-row';
+    const name=document.createElement('span');
+    name.textContent=label;
+    const pill=document.createElement('span');
+    pill.className='pill';
+    const dot=document.createElement('span');
+    dot.className='pill-dot '+(healthy?'good':'warn');
+    pill.append(dot,document.createTextNode(healthy?'Ready':'Not configured'));
+    row.append(name,pill);
+    healthGrid.appendChild(row);
+  }
+  const versionRow=document.createElement('div');
+  versionRow.className='status-row';
+  versionRow.append(document.createTextNode('Version'),document.createTextNode(
+    `${data.health?.version||'unknown'} · ${data.health?.deploy||'local'}`
+  ));
+  healthGrid.appendChild(versionRow);
+
+  const labels = daily.map(d=>String(d.day||'').slice(5));
+
+  mkChart('dauChart','line',{
+    labels,
+    datasets:[
+      {label:'DAU',data:daily.map(d=>d.dau||0),borderColor:'#3498db',backgroundColor:'rgba(52,152,219,.15)',fill:true,tension:.3},
+      {label:'Sessions',data:daily.map(d=>d.sessions||0),borderColor:'#2ecc71',backgroundColor:'rgba(46,204,113,.1)',fill:true,tension:.3},
+    ]
+  });
+
+  mkChart('playtimeChart','bar',{
+    labels,
+    datasets:[{label:'Playtime (min)',data:daily.map(d=>Math.round((d.totalPlaytimeMs||0)/60000)),backgroundColor:'#9b59b6'}]
+  });
+
+  mkChart('modeChart','bar',{
+    labels,
+    datasets:[
+      {label:'FFA',data:daily.map(d=>d.matches?.ffa||0),backgroundColor:'#f39c12'},
+      {label:'TDM',data:daily.map(d=>d.matches?.tdm||0),backgroundColor:'#3498db'},
+      {label:'Ranked',data:daily.map(d=>d.matches?.ranked||0),backgroundColor:'#e74c3c'},
+      {label:'LMS',data:daily.map(d=>d.matches?.lms||0),backgroundColor:'#9b59b6'},
+    ]
+  },{scales:{x:{stacked:true},y:{stacked:true}}});
+
+  const mapData = Array.isArray(data.mapPopularity)&&data.mapPopularity.length
+    ?data.mapPopularity:[{mapId:'no data',count:0}];
+  mkChart('mapChart','bar',{
+    labels: mapData.map(m=>m.mapId),
+    datasets:[{label:'Matches played',data:mapData.map(m=>m.count),backgroundColor:'#1abc9c'}]
+  },{indexAxis:'y'});
+
+  mkChart('retentionChart','bar',{
+    labels,
+    datasets:[
+      {label:'New',data:daily.map(d=>d.newPlayers||0),backgroundColor:'#2ecc71'},
+      {label:'Returning',data:daily.map(d=>d.returningPlayers||0),backgroundColor:'#3498db'},
+    ]
+  },{scales:{x:{stacked:true},y:{stacked:true}}});
+
+  const platforms=platformPopularity;
+  mkChart('platformChart','doughnut',{
+    labels:platforms.map(item=>platformLabel(item.platform)),
+    datasets:[{
+      label:'Joins',
+      data:platforms.map(item=>item.joins||0),
+      backgroundColor:['#3498db','#2ecc71','#9b59b6','#f39c12','#e74c3c'],
+    }]
+  },{scales:{}});
+
+  const hourly=Array.isArray(data.activityByHour)?data.activityByHour:[];
+  mkChart('activityChart','bar',{
+    labels:hourly.map(item=>String(item.hour).padStart(2,'0')+':00'),
+    datasets:[{label:'Joins',data:hourly.map(item=>item.joins||0),backgroundColor:'#3498db'}]
+  });
+
+  mkChart('shopChart','line',{
+    labels,
+    datasets:[
+      {label:'Cosmetic purchases',data:daily.map(d=>d.cosmeticPurchases??d.purchases??0),borderColor:'#f39c12',backgroundColor:'rgba(243,156,18,.15)',fill:true,tension:.3},
+      {label:'Premium purchases',data:daily.map(d=>d.premiumPurchases||0),borderColor:'#2ecc71',backgroundColor:'rgba(46,204,113,.12)',fill:true,tension:.3},
+      {label:'Shards spent',data:daily.map(d=>d.shardsSpent||0),borderColor:'#e74c3c',backgroundColor:'rgba(231,76,60,.1)',fill:true,tension:.3,yAxisID:'y1'},
+    ]
+  },{scales:{y1:{position:'right',grid:{drawOnChartArea:false}}}});
+
+  const revenuePalette=['#2ecc71','#3498db','#f39c12','#9b59b6'];
+  mkChart('revenueChart','line',{
+    labels:(commerce.daily||[]).map(item=>String(item.day||'').slice(5)),
+    datasets:currencies.map((currency,index)=>({
+      label:`Net ${String(currency.currency).toUpperCase()}`,
+      data:(commerce.daily||[]).map(day=>
+        (day.currencies||[]).find(item=>item.currency===currency.currency)?.netMinor/100||0
+      ),
+      borderColor:revenuePalette[index%revenuePalette.length],
+      backgroundColor:'transparent',
+      tension:.3,
+    })),
+  });
+
+  const funnel=data.funnel||{};
+  const funnelLabels=['Shop views','Checkout starts','Checkout cancels','Premium purchases','Shard purchases'];
+  const funnelValues=[
+    funnel.shop_view||0,funnel.checkout_start||0,funnel.checkout_cancel||0,
+    commerce.purchases||funnel.premium_purchase||0,funnel.purchase||totals.cosmeticPurchases||0,
+  ];
+  mkChart('funnelChart','bar',{
+    labels:funnelLabels,
+    datasets:[{
+      label:'Events',
+      data:funnelValues,
+      backgroundColor:['#3498db','#9b59b6','#e74c3c','#2ecc71','#f39c12'],
+    }]
+  },{indexAxis:'y'});
+}
+
+function mkChart(id,type,data,extraOptions){
+  const canvas=document.getElementById(id);
+  let empty=canvas.parentElement.querySelector('.chart-empty');
+  if(!empty){
+    empty=document.createElement('div');
+    empty.className='empty chart-empty';
+    canvas.insertAdjacentElement('afterend',empty);
+  }
+  const hasData=(data.datasets||[]).some(dataset=>
+    Array.isArray(dataset.data)&&dataset.data.some(value=>Number.isFinite(Number(value))&&Number(value)!==0)
+  );
+  if(charts[id]){
+    charts[id].destroy();
+    delete charts[id];
+  }
+  if(!hasData){
+    canvas.style.display='none';
+    empty.textContent='No activity recorded in this date range.';
+    empty.style.display='flex';
+    return;
+  }
+  if(typeof window.Chart!=='function'){
+    canvas.style.display='none';
+    empty.textContent='Charts could not start. Refresh the page to try again.';
+    empty.style.display='flex';
+    return;
+  }
+  canvas.style.display='block';
+  empty.style.display='none';
+  const ctx = canvas.getContext('2d');
+  const baseOptions={
+    responsive:true,
+    plugins:{legend:{labels:{color:'#8a92a6',boxWidth:12,font:{size:11}}}},
+    scales:{
+      x:{ticks:{color:'#8a92a6',font:{size:10}},grid:{color:'#232b3d'}},
+      y:{ticks:{color:'#8a92a6',font:{size:10}},grid:{color:'#232b3d'}},
+    },
+  };
+  const requested=extraOptions||{};
+  charts[id] = new Chart(ctx,{
+    type,data,
+    options:{
+      ...baseOptions,
+      ...requested,
+      plugins:{...baseOptions.plugins,...requested.plugins},
+      scales:Object.hasOwn(requested,'scales')
+        ?Object.fromEntries(Object.entries(requested.scales).map(([axis,options])=>[
+          axis,{...(baseOptions.scales[axis]||{}),...options},
+        ]))
+        :baseOptions.scales,
+    },
+  });
+}
+
+function showView(view){
+  const target=document.getElementById(`${view}View`)?view:'overview';
+  for(const panel of document.querySelectorAll('.dashboard-view')){
+    panel.style.display=panel.id===`${target}View`?'block':'none';
+  }
+  for(const tab of document.querySelectorAll('.view-tab')){
+    tab.classList.toggle('active',tab.dataset.view===target);
+  }
+  if(target==='announcements')loadAnnouncements();
+  requestAnimationFrame(()=>{
+    for(const chart of Object.values(charts))chart.resize();
+  });
+}
+
+function formatDate(value){
+  if(!value)return 'Not published';
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?'Unknown date':date.toLocaleString();
+}
+
+async function loadAnnouncements(){
+  try{
+    const res=await adminFetch('/api/admin/announcements');
+    if(res.status===401)return load(true);
+    const data=await res.json();
+    if(!data.ok)throw new Error(data.reason||'Could not load announcements');
+    announcementItems=data.announcements||[];
+    renderAnnouncements();
+  }catch(e){
+    document.getElementById('announcementList').innerHTML='';
+    const error=document.createElement('div');
+    error.className='empty';
+    error.textContent='Could not load announcements: '+e.message;
+    document.getElementById('announcementList').appendChild(error);
+  }
+}
+
+function renderAnnouncements(){
+  const list=document.getElementById('announcementList');
+  list.innerHTML='';
+  if(!announcementItems.length){
+    const empty=document.createElement('div');
+    empty.className='empty';
+    empty.textContent='No announcements yet. Create one using the form.';
+    list.appendChild(empty);
+    return;
+  }
+  announcementItems.forEach(item=>{
+    const card=document.createElement('article');
+    card.className='announcement-item';
+
+    const head=document.createElement('div');
+    head.className='announcement-item-head';
+    const heading=document.createElement('div');
+    const title=document.createElement('div');
+    title.className='announcement-title';
+    title.textContent=(item.important?'🚨 ':item.pinned?'📌 ':'')+item.title;
+    const meta=document.createElement('div');
+    meta.className='announcement-meta';
+    meta.textContent=`${item.type}${item.important?' · Important banner':''} · ${formatDate(item.publishedAt||item.updatedAt)}`;
+    heading.append(title,meta);
+    const status=document.createElement('span');
+    status.className='status-pill '+(item.published?'live':'draft');
+    status.textContent=item.published?'Published':'Draft';
+    head.append(heading,status);
+
+    const body=document.createElement('div');
+    body.className='announcement-body';
+    body.textContent=item.body;
+
+    const actions=document.createElement('div');
+    actions.className='announcement-actions';
+    const edit=document.createElement('button');
+    edit.textContent='Edit';
+    edit.onclick=()=>editAnnouncement(item.id);
+    const toggle=document.createElement('button');
+    toggle.className='secondary';
+    toggle.textContent=item.published?'Unpublish':'Publish';
+    toggle.onclick=()=>setAnnouncementPublished(item.id,!item.published);
+    const del=document.createElement('button');
+    del.className='danger';
+    del.textContent='Delete';
+    del.onclick=()=>deleteAnnouncement(item.id);
+    actions.append(edit,toggle,del);
+
+    card.append(head,body,actions);
+    list.appendChild(card);
+  });
+}
+
+function resetAnnouncementEditor(){
+  document.getElementById('announcementId').value='';
+  document.getElementById('announcementTitle').value='';
+  document.getElementById('announcementBody').value='';
+  document.getElementById('announcementType').value='news';
+  document.getElementById('announcementPublished').checked=false;
+  document.getElementById('announcementPinned').checked=false;
+  document.getElementById('announcementImportant').checked=false;
+  document.getElementById('announcementEditorTitle').textContent='New Announcement';
+  document.getElementById('announcementStatus').textContent='';
+}
+
+function editAnnouncement(id){
+  const item=announcementItems.find(value=>value.id===id);
+  if(!item)return;
+  document.getElementById('announcementId').value=item.id;
+  document.getElementById('announcementTitle').value=item.title;
+  document.getElementById('announcementBody').value=item.body;
+  document.getElementById('announcementType').value=item.type;
+  document.getElementById('announcementPublished').checked=item.published;
+  document.getElementById('announcementPinned').checked=item.pinned;
+  document.getElementById('announcementImportant').checked=item.important;
+  document.getElementById('announcementEditorTitle').textContent='Edit Announcement';
+  document.getElementById('announcementStatus').textContent='Editing '+item.title;
+  document.getElementById('announcementTitle').focus();
+}
+
+async function saveAnnouncement(){
+  const id=document.getElementById('announcementId').value;
+  const payload={
+    title:document.getElementById('announcementTitle').value,
+    body:document.getElementById('announcementBody').value,
+    type:document.getElementById('announcementType').value,
+    published:document.getElementById('announcementPublished').checked,
+    pinned:document.getElementById('announcementPinned').checked,
+    important:document.getElementById('announcementImportant').checked,
+  };
+  const status=document.getElementById('announcementStatus');
+  status.textContent='Saving…';
+  try{
+    const res=await adminFetch(id?`/api/admin/announcements/${encodeURIComponent(id)}`:'/api/admin/announcements',{
+      method:id?'PATCH':'POST',
+      body:JSON.stringify(payload),
+    });
+    const data=await res.json();
+    if(!data.ok)throw new Error((data.reason||'save_failed').replaceAll('_',' '));
+    resetAnnouncementEditor();
+    status.textContent=payload.published?'Saved and published.':'Saved as draft.';
+    await loadAnnouncements();
+  }catch(e){
+    status.textContent='Could not save: '+e.message;
+  }
+}
+
+async function setAnnouncementPublished(id,published){
+  try{
+    const res=await adminFetch(`/api/admin/announcements/${encodeURIComponent(id)}`,{
+      method:'PATCH',
+      body:JSON.stringify({published}),
+    });
+    const data=await res.json();
+    if(!data.ok)throw new Error(data.reason||'update_failed');
+    await loadAnnouncements();
+  }catch(e){
+    document.getElementById('announcementStatus').textContent='Could not update: '+e.message;
+  }
+}
+
+async function deleteAnnouncement(id){
+  const item=announcementItems.find(value=>value.id===id);
+  if(!item||!confirm(`Delete "${item.title}"?`))return;
+  try{
+    const res=await adminFetch(`/api/admin/announcements/${encodeURIComponent(id)}`,{method:'DELETE'});
+    const data=await res.json();
+    if(!data.ok)throw new Error(data.reason||'delete_failed');
+    if(document.getElementById('announcementId').value===id)resetAnnouncementEditor();
+    await loadAnnouncements();
+  }catch(e){
+    document.getElementById('announcementStatus').textContent='Could not delete: '+e.message;
+  }
+}
+
+if(ADMIN_KEY) load(true);
+</script>
+</body>
+</html>

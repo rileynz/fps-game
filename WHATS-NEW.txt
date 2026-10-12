@@ -1,0 +1,37 @@
+RileyBlox v0.4 — Playground update
+
+NEW
+- Arena plays in the same RileyBlox window, with Back, Reload and Fullscreen controls.
+- Existing Arena session is shared. Leaving unloads the embedded game.
+- Spin City: jump over an accelerating rotating beam; three hearts; survive 60 seconds.
+- Three saved outfit slots, synced through the Arena profile API.
+- Player levels and XP from rounds, wins and gems; personal-best result banners.
+- On-screen movement, jump and dash buttons for touch devices.
+
+GAMEPLAY
+- Shift dash with a three-second cooldown across all minigames.
+- Skybound: buffered jumps and brief edge forgiveness, plus a finish arch.
+- Lava Shuffle: safe-tile warning windows shorten through the twelve rounds.
+- Meteor Mayhem: collect blue shields to absorb one hit.
+- Gem Rush: chain pickups for combos and temporary speed boosts.
+- Small physics steps preserve normal timing at lower frame rates.
+
+FIXES
+- Existing saves without outfit slots migrate automatically; server validates new fields.
+- All six games can be favourited.
+- Embedded Arena's return link closes the game instead of nesting launchers.
+- Automatic mobile fullscreen is suppressed inside RileyBlox to keep the toolbar accessible.
+- Mobile users can log out in Settings; touch controls do not overlap the game hints.
+- Hidden launcher controls cannot steal keyboard focus while a game is open.
+
+VERIFIED
+16 Node tests passed: account authentication/deletion, profile validation/migration,
+account isolation, revision conflicts, and Mongo write shape using a fake collection.
+Chromium passed: PIN sign-in, six cards, search, outfit cloud API save/reload,
+embedded Arena authenticated match join, both return paths, no new window,
+conflicting saves, logout, all five minigames, all 17 Skybound jumps,
+beam/shield/dash/combo mechanics, buffered jumping, pause, mobile layout and controls.
+No launcher JavaScript errors were observed during these checks.
+Live Render and real MongoDB persistence have not been accessed or verified.
+Minigames remain solo and client-scored; Arena retains its own multiplayer features.
+No paid items, chat, purchases or fake online players have been added.

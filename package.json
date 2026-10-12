@@ -1,0 +1,26 @@
+{
+  "name": "arena-io",
+  "version": "2.1.1",
+  "description": "Fast multiplayer arena shooter built around skill-based ricochet combat",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "test:latency": "node scripts/test-300ms-latency.js",
+    "build:crazygames": "node scripts/build-crazygames.js",
+    "crazygames": "npm run build:crazygames",
+    "build:itch": "node scripts/build-itch.js",
+    "itch": "npm run build:itch"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "express": "^4.18.2",
+    "mongodb": "^6.0.0",
+    "socket.io": "^4.7.2",
+    "stripe": "^18.5.0"
+  },
+  "devDependencies": {
+    "chart.js": "^4.4.4",
+    "socket.io-client": "^4.8.3"
+  }
+}

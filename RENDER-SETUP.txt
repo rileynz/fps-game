@@ -1,0 +1,23 @@
+ARENA + RILEYBLOX v0.4 — PLAYGROUND UPDATE
+EXISTING RENDER SERVICE
+
+1. Extract this ZIP. Open the Arena-RileyBlox-Render folder.
+2. On github.com/rileynz/fps-game, select the branch connected to your Render service.
+3. Choose Add file > Upload files. Drag the CONTENTS of this folder into the upload page, not the enclosing folder or ZIP. Keep public, scripts, test and platform as folders. Commit changes.
+4. In the EXISTING Arena Render web service, check:
+   Build command: npm ci
+   Start command: npm start
+   Root directory: blank (package.json is at the repository root)
+   MONGODB_URI: keep your existing secret value
+   PUBLIC_BASE_URL: https://arena-io-0hn9.onrender.com
+   PORT: keep Render's supplied value
+   Keep all other existing Arena environment settings.
+5. If automatic deployment does not run, choose Manual Deploy > Deploy latest commit.
+6. After the service is Live, open https://arena-io-0hn9.onrender.com/rileyblox/
+7. Sign in with your existing Arena username and PIN or password. Check Render logs confirm MongoDB connected. Change an outfit, reload, and verify it persists.
+
+No installer, Python, local server, new Render service or database migration is needed.
+This package contains the server-ready source, including the already-applied RileyBlox integration. Windows Store installation bundles are omitted because Render does not use them; uploading these files does not remove existing repository files.
+Built from Arena commit 801d664d89244ec55e69f7b6d2a453ad419b52a4 plus the RileyBlox update. If you have changed Arena since that commit, review overlapping files before replacing them.
+No secrets or node_modules are included. Do not upload your .env or database credentials.
+16 focused integration/account tests and real Chromium browser checks passed. Live MongoDB and Render deployment have not been verified from this workspace.

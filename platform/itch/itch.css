@@ -1,0 +1,215 @@
+/* itch.io-only compatibility. The normal Arena.io visual identity is preserved. */
+html,body{
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  overscroll-behavior:none;
+  -webkit-user-select:none;
+  user-select:none;
+}
+
+#menu-account-btn,
+#btn-shop,
+#shop-panel,
+#shop-account-modal,
+#pin-modal,
+#chat-wrap,
+#daily-shard-bar{
+  display:none!important;
+}
+
+.name-account-row{gap:0!important}
+.name-account-row #name-input{width:100%;flex:1 1 auto}
+
+#itch-loading{
+  --itch-red:#e74c3c;
+  --itch-purple:#9b59b6;
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  padding:20px;
+  background:
+    radial-gradient(circle at 50% 43%,rgba(155,89,182,.17),transparent 30%),
+    radial-gradient(circle at 75% 18%,rgba(231,76,60,.09),transparent 27%),
+    linear-gradient(155deg,#090913 0%,#111025 52%,#090911 100%);
+  color:#fff;
+  font-family:Inter,"Segoe UI",Arial,sans-serif;
+  opacity:1;
+  transition:opacity .5s ease,visibility .5s ease;
+}
+#itch-loading[hidden]{display:none}
+#itch-loading.itch-ready{opacity:0;visibility:hidden}
+
+.itch-loading-grid{
+  position:absolute;
+  inset:-50%;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+  background-size:62px 62px;
+  transform:perspective(650px) rotateX(61deg) translateY(21%);
+  mask-image:linear-gradient(to bottom,transparent 12%,#000 55%,transparent 88%);
+  animation:itch-grid-drift 7s linear infinite;
+}
+
+.itch-orbit{
+  position:absolute;
+  border:1px solid rgba(255,255,255,.045);
+  border-radius:50%;
+  pointer-events:none;
+}
+.itch-orbit-one{width:min(720px,92vw);height:min(720px,92vw);animation:itch-orbit 24s linear infinite}
+.itch-orbit-two{width:min(520px,72vw);height:min(520px,72vw);border-color:rgba(155,89,182,.09);animation:itch-orbit 17s linear infinite reverse}
+.itch-orbit::after{
+  content:"";
+  position:absolute;
+  width:7px;
+  height:7px;
+  top:12%;
+  left:19%;
+  border-radius:50%;
+  background:var(--itch-red);
+  box-shadow:0 0 20px var(--itch-red);
+}
+
+.itch-loading-card{
+  position:relative;
+  width:min(430px,92vw);
+  padding:31px 34px 27px;
+  border:1px solid rgba(255,255,255,.095);
+  border-radius:25px;
+  background:linear-gradient(155deg,rgba(25,23,42,.92),rgba(10,10,19,.94));
+  box-shadow:0 28px 90px rgba(0,0,0,.56),inset 0 1px rgba(255,255,255,.05);
+  text-align:center;
+  backdrop-filter:blur(18px);
+}
+
+.itch-brand{
+  font-size:27px;
+  font-weight:900;
+  letter-spacing:-1.4px;
+  text-shadow:0 0 26px rgba(231,76,60,.25);
+}
+.itch-brand span{color:var(--itch-red)}
+.itch-kicker{
+  margin-top:4px;
+  color:rgba(255,255,255,.33);
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:2.6px;
+  text-transform:uppercase;
+}
+
+.itch-core{
+  position:relative;
+  width:86px;
+  height:86px;
+  margin:25px auto 20px;
+  display:grid;
+  place-items:center;
+}
+.itch-core-ring{
+  position:absolute;
+  inset:0;
+  border:2px solid rgba(255,255,255,.065);
+  border-top-color:var(--itch-red);
+  border-right-color:var(--itch-purple);
+  border-radius:50%;
+  box-shadow:0 0 30px rgba(155,89,182,.14);
+  animation:itch-spin 1.45s cubic-bezier(.55,.1,.45,.9) infinite;
+}
+.itch-core-ring::before{
+  content:"";
+  position:absolute;
+  inset:9px;
+  border:1px solid rgba(255,255,255,.07);
+  border-bottom-color:rgba(231,76,60,.65);
+  border-radius:50%;
+  animation:itch-spin 2.1s linear infinite reverse;
+}
+.itch-core-dot{
+  width:25px;
+  height:25px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#ff9c93,var(--itch-red) 43%,#851f31);
+  box-shadow:0 0 18px rgba(231,76,60,.65),0 0 45px rgba(155,89,182,.28);
+  animation:itch-pulse 1.4s ease-in-out infinite;
+}
+
+#itch-loading-title{font-size:20px;font-weight:900;letter-spacing:-.25px}
+#itch-loading-status{
+  min-height:34px;
+  margin:7px auto 16px;
+  max-width:330px;
+  color:rgba(255,255,255,.48);
+  font-size:11px;
+  line-height:1.55;
+}
+.itch-progress{
+  height:6px;
+  overflow:hidden;
+  border-radius:99px;
+  background:rgba(255,255,255,.07);
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.4);
+}
+#itch-progress-fill{
+  width:5%;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,var(--itch-purple),var(--itch-red),#f39c12);
+  box-shadow:0 0 14px rgba(231,76,60,.45);
+  transition:width .42s ease;
+}
+.itch-loading-meta{
+  display:flex;
+  justify-content:space-between;
+  margin-top:8px;
+  color:rgba(255,255,255,.27);
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:1.4px;
+  text-transform:uppercase;
+}
+#itch-loading-tip{
+  margin:18px auto 0;
+  max-width:330px;
+  color:rgba(255,255,255,.31);
+  font-size:9.5px;
+  line-height:1.45;
+}
+#itch-loading-retry{
+  display:none;
+  width:100%;
+  margin-top:15px;
+  padding:10px 14px;
+  border:1px solid rgba(231,76,60,.32);
+  border-radius:10px;
+  background:rgba(231,76,60,.08);
+  color:#ff9389;
+  font:800 10px inherit;
+  letter-spacing:.6px;
+  cursor:pointer;
+}
+#itch-loading-retry.visible{display:block}
+#itch-loading-retry:hover{background:rgba(231,76,60,.14);border-color:rgba(231,76,60,.55)}
+
+@keyframes itch-spin{to{transform:rotate(360deg)}}
+@keyframes itch-pulse{50%{transform:scale(.84);filter:brightness(1.2)}}
+@keyframes itch-orbit{to{transform:rotate(360deg)}}
+@keyframes itch-grid-drift{to{background-position:0 62px,62px 0}}
+
+@media(max-width:520px),(max-height:560px){
+  .itch-loading-card{padding:23px 23px 20px}
+  .itch-core{width:68px;height:68px;margin:18px auto 14px}
+  .itch-brand{font-size:24px}
+  #itch-loading-status{margin-bottom:12px}
+  #itch-loading-tip{margin-top:12px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .itch-loading-grid,.itch-orbit,.itch-core-ring,.itch-core-ring::before,.itch-core-dot{animation:none}
+  #itch-progress-fill{transition:none}
+}
